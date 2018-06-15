@@ -1,0 +1,24 @@
+FROM alpine:3.7
+
+RUN apk update
+RUN apk add --virtual .build-deps\
+    gcc \
+    libc-dev \
+    make \
+    openssl-dev \
+    \
+#    pcre-dev \
+    zlib-dev \
+    linux-headers \
+    curl \
+    gnupg \
+    libxslt-dev \
+    gd-dev \
+    \
+#    geoip-dev \
+    \
+    # libjwt build deps
+    autoconf automake libtool cmake check-dev
+
+# libjwt runtime deps
+RUN apk add jansson-dev

@@ -1,0 +1,16 @@
+FROM jwt-nginx-s0
+
+# build libjwt
+ARG LIBJWT_VERSION=1.8.0
+
+RUN mkdir libjwt \
+  && curl -sL https://github.com/benmcollins/libjwt/archive/v$LIBJWT_VERSION.tar.gz \
+   | tar -zx -C libjwt/ --strip-components=1 \
+  && cd libjwt \
+  && autoreconf -i \
+  && ./configure \
+  && make all \
+  && make check \
+  && make install \
+  && cd .. \
+  && rm -fr libjwt
