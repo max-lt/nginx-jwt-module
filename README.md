@@ -1,4 +1,10 @@
+[github-license-url]: /blob/master/LICENSE
+[docker-url]: https://hub.docker.com/r/maxxt/nginx-jwt-module/
+
 # Nginx jwt auth module
+[![Build Status](https://img.shields.io/github/license/maxx-t/nginx-jwt-module.svg)][github-license-url]
+[![Build Status](https://img.shields.io/docker/build/maxxt/nginx-jwt-module.svg)][docker-url]
+[![Docker pulls](https://img.shields.io/docker/pulls/maxxt/nginx-jwt-module.svg)][docker-url]
 
 This is an NGINX module to check for a valid JWT.
 
