@@ -37,6 +37,24 @@ else
   MACHINE_IP=`docker-machine ip 2> /dev/null`
 fi
 
+
+b64enc() { openssl enc -base64 -A | tr '+/' '-_' | tr -d '='; }
+hs_sign() { openssl dgst -binary -sha"${1}" -hmac "$2"; }
+rs_sign() { openssl dgst -binary -sha"${1}" -sign <(printf '%s\n' "$2"); }
+
+make_jwt() {
+  local alg=$1
+  local key=$2
+  local header=`echo -n "{\"alg\":\"$alg\"}" | b64enc`
+  local payload=`echo -n '{}' | b64enc`
+  local secret=`cat ./resources/keys/$key`
+  local sig=`echo -n "$header.$payload" | rs_sign '256' "$secret" | b64enc`
+  echo -n "$header.$payload.$sig"
+  return 0
+}
+
+VALID_RS256=`make_jwt RS256 rsa-private.pem`
+BAD_RS256=`make_jwt RS256 rsa-wrong-private.pem`
 VALID_JWT="eyJhbGciOiJIUzI1NiJ9.e30.-gVyhFDs5NeX0yvaAoTPVgrDfrg_qk7dF0sNj_-Bu-c"
 BAD_SIG="eyJhbGciOiJIUzI1NiJ9.e30.nmwH1lIcnA-g8CEV_fWIlAV7h98_Wwy1gIqIabAdrIs"
 
@@ -87,6 +105,10 @@ test_jwt "Secure test with invalid jwt auth header" "/secure-auth-header/" "401"
 test_jwt "Secure test with invalid jwt auth header" "/secure-auth-header/" "401" "--header \"Authorization: BearerXa\""
 
 test_jwt "Secure test with invalid jwt auth header" "/secure-auth-header/" "401" "--header \"Authorization: BearAr a\""
+
+test_jwt "Secure test with valid jwt cookie - RS256" "/rsa-file-encoded/" "200" "--header \"Authorization: Bearer ${VALID_RS256}\""
+
+test_jwt "Secure test with invalid jwt cookie - RS256" "/rsa-file-encoded/" "401" "--header \"Authorization: Bearer ${BAD_RS256}\""
 
 if [[ "$DOCKER_CONTAINER_NAME" != 0 ]]; then
   echo stopping container $DOCKER_CONTAINER_NAME

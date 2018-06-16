@@ -9,7 +9,7 @@ typedef struct {
 	ngx_str_t   jwt_key;          // Forwarded: key as hexadecimal string
 	ngx_str_t   jwt_var;          // Forwarded: as "auth_jwt" value: on | off | $variable
 	ngx_flag_t  jwt_flag;         // Computed: function of jwt_var: on -> 1 | off -> 0 | $variable -> 2
-	ngx_int_t   jwt_var_index;    // Computed: useful only if jwt_flag==2 ->
+	ngx_int_t   jwt_var_index;    // Computed: useful only if jwt_flag==2
 } ngx_http_auth_jwt_loc_conf_t;
 
 #define NGX_HTTP_AUTH_JWT_OFF     0
@@ -20,14 +20,17 @@ typedef struct {
 #define NGX_HTTP_AUTH_JWT_ENCODING_BASE64  1
 #define NGX_HTTP_AUTH_JWT_ENCODING_UTF8    2
 
-static ngx_int_t ngx_http_auth_jwt_init(ngx_conf_t *cf);
 static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r);
-static void * ngx_http_auth_jwt_create_conf(ngx_conf_t *cf);
-static char * ngx_http_auth_jwt_merge_conf(ngx_conf_t *cf, void *parent, void *child);
 static ngx_int_t auth_jwt_get_token(char **token, ngx_http_request_t *r, const ngx_http_auth_jwt_loc_conf_t *conf);
 
-// Parsing functions
-char * ngx_conf_set_encoded_binary_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+// Configuration functions
+static ngx_int_t ngx_http_auth_jwt_init(ngx_conf_t *cf);
+static void * ngx_http_auth_jwt_create_conf(ngx_conf_t *cf);
+static char * ngx_http_auth_jwt_merge_conf(ngx_conf_t *cf, void *parent, void *child);
+
+// Declaration functions
+static char * ngx_conf_set_encoded_binary_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+static char * ngx_conf_set_jwt_key_file(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 static ngx_command_t ngx_http_auth_jwt_commands[] = {
 
@@ -39,7 +42,12 @@ static ngx_command_t ngx_http_auth_jwt_commands[] = {
 		offsetof(ngx_http_auth_jwt_loc_conf_t, jwt_key),
 		NULL },
 
-  // todo: auth_jwt_key_file "file location"
+  { ngx_string("auth_jwt_key_file"),
+    NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+    ngx_conf_set_jwt_key_file,
+    NGX_HTTP_LOC_CONF_OFFSET,
+    offsetof(ngx_http_auth_jwt_loc_conf_t, jwt_key),
+    NULL },
 
   // auth_jwt $variable | off | on;
 	{ ngx_string("auth_jwt"),
@@ -166,16 +174,16 @@ static void * ngx_http_auth_jwt_create_conf(ngx_conf_t *cf)
 		return NULL;
 	}
 
-	// set the flag to unset
-	conf->jwt_flag = (ngx_flag_t) -1;
-
-	ngx_conf_log_error(NGX_LOG_INFO, cf, 0, "JWT: Created Location Configuration %d", conf->jwt_flag);
+	// Initialize variables
+	conf->jwt_flag = NGX_CONF_UNSET;
+	conf->jwt_var_index = NGX_CONF_UNSET;
 
 	return conf;
 }
 
 
-static inline int hex_to_binary(u_char* dest, u_char* src, const size_t n) {
+static int hex_to_binary(u_char* dest, u_char* src, const size_t n)
+{
     u_char *p = &dest[0];
     ngx_int_t dst;
     for (size_t i = 0; i < n; i += 2) {
@@ -189,7 +197,50 @@ static inline int hex_to_binary(u_char* dest, u_char* src, const size_t n) {
 }
 
 
-char * ngx_conf_set_encoded_binary_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+static char *ngx_conf_set_jwt_key_file(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+  ngx_str_t *key = conf;
+  ngx_str_t *args = cf->args->elts;
+  char *key_file = (char *)args[1].data;
+
+  // If jwt_key.data not null
+  if (key->data != NULL)
+  {
+    return "is duplicate";
+  }
+
+  // Determine file size (avoiding fseek)
+  struct stat fstat;
+  if (stat(key_file, &fstat) < 0)
+  {
+    ngx_conf_log_error(NGX_LOG_ERR, cf, errno, strerror(errno));
+    return NGX_CONF_ERROR;
+  }
+
+  FILE *fp = fopen(key_file, "rb");
+  if (fp == NULL)
+  {
+    ngx_conf_log_error(NGX_LOG_ERR, cf, errno, strerror(errno));
+    return NGX_CONF_ERROR;
+  }
+
+  key->len = fstat.st_size;
+  key->data = calloc(key->len, 1);
+
+  if (fread(key->data, 1, key->len, fp) != key->len)
+  {
+    ngx_conf_log_error(NGX_LOG_ERR, cf, 0, "jwt_key_file: unexpected end of file");
+    fclose(fp);
+    return NGX_CONF_ERROR;
+  }
+
+  fclose(fp);
+
+  return NGX_CONF_OK;
+}
+
+
+static char * ngx_conf_set_encoded_binary_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
   ngx_http_auth_jwt_loc_conf_t *ajcf = conf;
 
@@ -197,6 +248,12 @@ char * ngx_conf_set_encoded_binary_slot(ngx_conf_t *cf, ngx_command_t *cmd, void
   ngx_uint_t       encoding;
 
   value = cf->args->elts;
+
+  // If jwt_key.data not null
+  if (ajcf->jwt_key.data != NULL)
+  {
+    return "is duplicate";
+  }
 
   // If there is only the key string;
   if (cf->args->nelts == 2)
