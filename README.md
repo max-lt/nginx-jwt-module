@@ -54,6 +54,12 @@ Enables validation of JWT.
 Specifies the key for validating JWT signature (must be hexadecimal).
 The *encoding* otpion may be `hex | utf8 | base64` (default is utf8).
 
+    Syntax:	 auth_jwt_key_file filename;
+    Default: ——
+    Context: http, server, location
+
+Specifies a public key file for validating JWT signature.
+
 ### Build:
 ```bash
 ./build # Will create a "jwt-nginx" (Dockerfile)
