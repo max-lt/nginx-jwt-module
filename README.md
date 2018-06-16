@@ -20,7 +20,7 @@ This module is built inside a docker container, from the [alpine](https://hub.do
 ### Example Configuration:
 ```nginx
 server {
-    auth_jwt_key "0123456789abcdef"; # Your key as hex string
+    auth_jwt_key "0123456789abcdef" hex; # Your key as hex string
     auth_jwt     off;
 
     location /secured-by-cookie/ {
@@ -28,6 +28,11 @@ server {
     }
 
     location /secured-by-auth-header/ {
+        auth_jwt on;
+    }
+
+    location /secured-by-auth-header-too/ {
+        auth_jwt_key "another-secret"; # Your key as utf8 string
         auth_jwt on;
     }
 
@@ -42,11 +47,12 @@ server {
 
 Enables validation of JWT.
 
-    Syntax:	 auth_jwt_key string;
+    Syntax:	 auth_jwt_key string [encoding];
     Default: ——
     Context: http, server, location
 
 Specifies the key for validating JWT signature (must be hexadecimal).
+The *encoding* otpion may be `hex | utf8 | base64` (default is utf8).
 
 ### Build:
 ```bash
