@@ -8,7 +8,6 @@
 typedef struct {
 	ngx_str_t   jwt_key;          // Forwarded: key as hexadecimal string
 	ngx_str_t   jwt_var;          // Forwarded: as "auth_jwt" value: on | off | $variable
-	ngx_str_t   jwt_bin_key;      // Computed: "jwt_key" in binary.
 	ngx_flag_t  jwt_flag;         // Computed: function of jwt_var: on -> 1 | off -> 0 | $variable -> 2
 	ngx_int_t   jwt_var_index;    // Computed: useful only if jwt_flag==2 ->
 } ngx_http_auth_jwt_loc_conf_t;
@@ -17,19 +16,25 @@ typedef struct {
 #define NGX_HTTP_AUTH_JWT_DEFAULT 1
 #define NGX_HTTP_AUTH_JWT_VALUE   2
 
+#define NGX_HTTP_AUTH_JWT_ENCODING_HEX     0
+#define NGX_HTTP_AUTH_JWT_ENCODING_BASE64  1
+#define NGX_HTTP_AUTH_JWT_ENCODING_UTF8    2
+
 static ngx_int_t ngx_http_auth_jwt_init(ngx_conf_t *cf);
 static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r);
 static void * ngx_http_auth_jwt_create_conf(ngx_conf_t *cf);
 static char * ngx_http_auth_jwt_merge_conf(ngx_conf_t *cf, void *parent, void *child);
 static ngx_int_t auth_jwt_get_token(char **token, ngx_http_request_t *r, const ngx_http_auth_jwt_loc_conf_t *conf);
 
+// Parsing functions
+char * ngx_conf_set_encoded_binary_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+
 static ngx_command_t ngx_http_auth_jwt_commands[] = {
 
-  // todo: auth_jwt_key "key" [encoding = ascii | hex | base64]
   // auth_jwt_key "hexadecimal key";
 	{ ngx_string("auth_jwt_key"),
-		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-		ngx_conf_set_str_slot,
+		NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE12,
+		ngx_conf_set_encoded_binary_slot,
 		NGX_HTTP_LOC_CONF_OFFSET,
 		offsetof(ngx_http_auth_jwt_loc_conf_t, jwt_key),
 		NULL },
@@ -106,7 +111,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 	}
 
 	// Validate the jwt
-	if (jwt_decode(&jwt, jwt_data, conf->jwt_bin_key.data, conf->jwt_bin_key.len))
+	if (jwt_decode(&jwt, jwt_data, conf->jwt_key.data, conf->jwt_key.len))
 	{
 		ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: failed to parse jwt");
 		return NGX_HTTP_UNAUTHORIZED;
@@ -119,12 +124,11 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 		return NGX_HTTP_UNAUTHORIZED;
 	}
 
-	// Validate the exp date of the JWT
-	time_t exp = (time_t) jwt_get_grant_int(jwt, "exp");
-	time_t now = time(NULL);
-	if (exp < now)
+	// Validate the exp date of the JWT; Still valid if "exp" missing (exp == -1)
+	time_t exp = (time_t)jwt_get_grant_int(jwt, "exp");
+	if (exp != -1 && exp < time(NULL))
 	{
-		ngx_log_error(NGX_LOG_INFO, r->connection->log, 0, "JWT: the jwt has expired");
+		ngx_log_error(NGX_LOG_INFO, r->connection->log, 0, "JWT: the jwt has expired [exp=%ld]", (long)exp);
 		return NGX_HTTP_UNAUTHORIZED;
 	}
 
@@ -171,7 +175,7 @@ static void * ngx_http_auth_jwt_create_conf(ngx_conf_t *cf)
 }
 
 
-static inline int hex_to_binary(u_char* src, u_char* dest, const size_t n) {
+static inline int hex_to_binary(u_char* dest, u_char* src, const size_t n) {
     u_char *p = &dest[0];
     ngx_int_t dst;
     for (size_t i = 0; i < n; i += 2) {
@@ -185,6 +189,76 @@ static inline int hex_to_binary(u_char* src, u_char* dest, const size_t n) {
 }
 
 
+char * ngx_conf_set_encoded_binary_slot(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+  ngx_http_auth_jwt_loc_conf_t *ajcf = conf;
+
+  ngx_str_t        *value;
+  ngx_uint_t       encoding;
+
+  value = cf->args->elts;
+
+  // If there is only the key string;
+  if (cf->args->nelts == 2)
+  {
+    encoding = NGX_HTTP_AUTH_JWT_ENCODING_UTF8;
+  }
+  else if (cf->args->nelts == 3)
+  {
+    if (ngx_strcmp(value[2].data, "hex") == 0)
+      encoding = NGX_HTTP_AUTH_JWT_ENCODING_HEX;
+    else if (ngx_strcmp(value[2].data, "base64") == 0)
+      encoding = NGX_HTTP_AUTH_JWT_ENCODING_BASE64;
+    else if (ngx_strcmp(value[2].data, "utf8") == 0)
+      encoding = NGX_HTTP_AUTH_JWT_ENCODING_UTF8;
+    else
+      return NGX_CONF_ERROR;
+  }
+  else
+  {
+    return NGX_CONF_ERROR;
+  }
+
+  ngx_str_t key = value[1];
+
+  switch (encoding)
+  {
+    case NGX_HTTP_AUTH_JWT_ENCODING_HEX:
+      // Parse provided key
+      if (key.len % 2)
+      {
+        ngx_conf_log_error(NGX_LOG_ERR, cf, 0, "JWT: Invalid hex string");
+        return NGX_CONF_ERROR;
+      }
+      ajcf->jwt_key.data = ngx_palloc(cf->pool, key.len / 2);
+      ajcf->jwt_key.len = key.len / 2;
+      if (hex_to_binary(ajcf->jwt_key.data, key.data, key.len) != NGX_OK)
+      {
+        ngx_conf_log_error(NGX_LOG_ERR, cf, 0, "JWT: Failed to turn hex key into binary");
+        return NGX_CONF_ERROR;
+      }
+      return NGX_CONF_OK;
+    case NGX_HTTP_AUTH_JWT_ENCODING_BASE64:
+      ajcf->jwt_key.len = ngx_base64_decoded_length(key.len);
+      ajcf->jwt_key.data = ngx_palloc(cf->pool, ajcf->jwt_key.len);
+
+      if (ngx_decode_base64(&ajcf->jwt_key, &key) != NGX_OK) {
+        ngx_conf_log_error(NGX_LOG_ERR, cf, 0, "JWT: Failed to turn base64 key into binary");
+        return NGX_CONF_ERROR;
+      }
+      return NGX_CONF_OK;
+    case NGX_HTTP_AUTH_JWT_ENCODING_UTF8:
+      ajcf->jwt_key.data = key.data;
+      ajcf->jwt_key.len = key.len;
+      return NGX_CONF_OK;
+    default:
+      return NGX_CONF_ERROR;
+  }
+
+  return NGX_CONF_ERROR;
+}
+
+
 static char * ngx_http_auth_jwt_merge_conf(ngx_conf_t *cf, void *parent, void *child)
 {
 	ngx_http_auth_jwt_loc_conf_t *prev = parent;
@@ -193,7 +267,6 @@ static char * ngx_http_auth_jwt_merge_conf(ngx_conf_t *cf, void *parent, void *c
 	ngx_conf_merge_str_value(conf->jwt_key, prev->jwt_key, "");
 	ngx_conf_merge_str_value(conf->jwt_var, prev->jwt_var, "");
 
-	const ngx_str_t key = conf->jwt_key;
 	const ngx_str_t var = conf->jwt_var;
 
 	// ngx_conf_log_error(NGX_LOG_DEBUG, cf, 0, "JWT: merged conf data=%s, key=%s", var.data, key.data);
@@ -239,22 +312,6 @@ static char * ngx_http_auth_jwt_merge_conf(ngx_conf_t *cf, void *parent, void *c
 	  conf->jwt_var_index = n;
 
   }
-
-  // Parse provided key
-  if (key.len % 2)
-	{
-	  // todo: check alphabet
-		ngx_conf_log_error(NGX_LOG_ERR, cf, 0, "JWT: Invalid hex string");
-	  return NGX_CONF_ERROR;
-	}
-
-  conf->jwt_bin_key.data = ngx_palloc(cf->pool, key.len / 2);
-  conf->jwt_bin_key.len = key.len / 2;
-  if (0 != hex_to_binary(key.data, conf->jwt_bin_key.data, key.len))
-	{
-		ngx_conf_log_error(NGX_LOG_ERR, cf, 0, "JWT: Failed to turn hex key into binary");
-		return NGX_CONF_ERROR;
-	}
 
   // todo : NGX_CONF_ERROR
 	return NGX_CONF_OK;
