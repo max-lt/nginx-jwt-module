@@ -2,11 +2,18 @@
 
 RED='\033[01;31m'
 GREEN='\033[01;32m'
+YELLOW='\033[01;33m'
 NONE='\033[00m'
+
+USE_CURRENT=0
 
 # use an already running container
 if [[ "$1" == "--current" ]]; then
-  DOCKER_CONTAINER_NAME=0
+  USE_CURRENT=1
+  DOCKER_CONTAINER_NAME=${2:-0}
+  if [[ "$DOCKER_CONTAINER_NAME" == "0" ]]; then
+    echo -e "${YELLOW}Warning: configuration tests needs the container identifier as second argument${NONE}"
+  fi
 # build test image if no image name passed
 elif [ -z "$1" ]; then
   echo "Building test image from jwt-nginx"
@@ -24,7 +31,7 @@ else
   shift
 fi
 
-if [[ "$DOCKER_CONTAINER_NAME" != 0 ]]; then
+if [[ "$USE_CURRENT" == "0" ]]; then
   DOCKER_CONTAINER_NAME=container-${DOCKER_IMAGE_NAME}
   docker run --rm --name "${DOCKER_CONTAINER_NAME}" -d -p 8000:8000 ${DOCKER_IMAGE_NAME}
 fi
@@ -74,6 +81,19 @@ test_jwt () {
   fi
 }
 
+test_conf () {
+  local target=$DOCKER_CONTAINER_NAME
+  local config=$1
+  local expect="$2"
+  match=`docker exec -it $target nginx -t -c "/etc/nginx/${config}.conf" | grep "$expect" | wc -l`
+
+  if [ "$match" -ne "0" ];then
+    echo -e "${GREEN}Config test ${config}: passed (${match})${NONE}";
+  else
+    echo -e "${RED}Config test ${config}: failed (no match for '${expect}')${NONE}";
+  fi
+}
+
 test_jwt "Insecure test" "/" "200"
 
 test_jwt "Secure test without jwt" "/secure-cookie/" "401"
@@ -110,7 +130,14 @@ test_jwt "Secure test with valid jwt cookie - RS256" "/rsa-file-encoded/" "200" 
 
 test_jwt "Secure test with invalid jwt cookie - RS256" "/rsa-file-encoded/" "401" "--header \"Authorization: Bearer ${BAD_RS256}\""
 
-if [[ "$DOCKER_CONTAINER_NAME" != 0 ]]; then
+if [[ "$DOCKER_CONTAINER_NAME" == "0" ]]; then
+  echo -e "${YELLOW}Warning: container identifier not set -> skipping configuration tests${NONE}"
+  exit 1
+fi
+
+test_conf 'invalid-nginx' '"auth_jwt_key_file" directive is duplicate in /etc/nginx/invalid-nginx.conf:17'
+
+if [[ "$USE_CURRENT" == "0" ]]; then
   echo stopping container $DOCKER_CONTAINER_NAME
   docker stop ${DOCKER_CONTAINER_NAME} > /dev/null
 fi

@@ -80,5 +80,10 @@ example:
 ```
 #### Use current container:
 ```bash
-./test --current
+./test --current container
+```
+example:
+```bash
+# docker run --rm --name ngx-test -p 8000:8000 jwt-nginx-test
+./test --current ngx-test
 ```
