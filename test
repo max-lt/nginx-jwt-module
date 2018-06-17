@@ -65,11 +65,24 @@ BAD_RS256=`make_jwt RS256 rsa-wrong-private.pem`
 VALID_JWT="eyJhbGciOiJIUzI1NiJ9.e30.-gVyhFDs5NeX0yvaAoTPVgrDfrg_qk7dF0sNj_-Bu-c"
 BAD_SIG="eyJhbGciOiJIUzI1NiJ9.e30.nmwH1lIcnA-g8CEV_fWIlAV7h98_Wwy1gIqIabAdrIs"
 
+test_for_tab () {
+  local test=`grep $'\t' src/ngx_http_auth_jwt_module.c | wc -l`
+  local name='Indent test'
+  if [ "$test" == "0" ];then
+    echo -e "${GREEN}${name}: passed${NONE}";
+  else
+    echo -e "${RED}${name}: failed (found ${test} tabs instead of 0)${NONE}";
+    exit 1
+  fi
+}
+
+test_for_tab
+
 test_jwt () {
-  name=$1
-  path=$2
-  expect=$3
-  extra=$4
+  local name=$1
+  local path=$2
+  local expect=$3
+  local extra=$4
 
   cmd="curl -X GET -o /dev/null --silent --head --write-out '%{http_code}' http://$MACHINE_IP:8000$path -H 'cache-control: no-cache' $extra"
 
@@ -85,6 +98,7 @@ test_conf () {
   local target=$DOCKER_CONTAINER_NAME
   local config=$1
   local expect="$2"
+
   match=`docker exec -it $target nginx -t -c "/etc/nginx/${config}.conf" | grep "$expect" | wc -l`
 
   if [ "$match" -ne "0" ];then
@@ -136,6 +150,22 @@ if [[ "$DOCKER_CONTAINER_NAME" == "0" ]]; then
 fi
 
 test_conf 'invalid-nginx' '"auth_jwt_key_file" directive is duplicate in /etc/nginx/invalid-nginx.conf:17'
+
+test_conf 'invalid-arg-1' 'invalid number of arguments in "auth_jwt" directive in /etc/nginx/invalid-arg-1.conf:5'
+
+test_conf 'invalid-arg-2' 'invalid number of arguments in "auth_jwt_key" directive in /etc/nginx/invalid-arg-2.conf:4'
+
+test_conf 'invalid-arg-3' 'Invalid key in /etc/nginx/invalid-arg-3.conf:4'
+
+test_conf 'invalid-arg-4' 'No such file or directory (2: No such file or directory) in /etc/nginx/invalid-arg-4.conf:4'
+
+test_conf 'invalid-arg-5' 'No such file or directory (2: No such file or directory) in /etc/nginx/invalid-arg-5.conf:4'
+
+test_conf 'invalid-arg-6' 'invalid number of arguments in "auth_jwt_key_file" directive in /etc/nginx/invalid-arg-6.conf:4'
+
+test_conf 'invalid-key-1' 'Failed to turn hex key into binary in /etc/nginx/invalid-key-1.conf:4'
+
+test_conf 'invalid-key-2' 'Failed to turn base64 key into binary in /etc/nginx/invalid-key-2.conf:4'
 
 if [[ "$USE_CURRENT" == "0" ]]; then
   echo stopping container $DOCKER_CONTAINER_NAME
