@@ -6,7 +6,10 @@ ARG NGINX_VERSION=1.14.0
 ARG MODULE_PATH=/usr/lib/nginx/modules
 ARG JWT_MODULE_PATH=/usr/local/lib/ngx-http-auth-jwt-module
 
-ADD . $JWT_MODULE_PATH
+RUN mkdir -p $JWT_MODULE_PATH/src
+
+ADD config $JWT_MODULE_PATH/config
+ADD src $JWT_MODULE_PATH/src
 
 RUN  JWT_AUTH_MODULE=ngx_http_auth_jwt_module \
   && JANSSON_VERSION=2.10 \
