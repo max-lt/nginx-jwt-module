@@ -62,7 +62,7 @@ Specifies the key for validating JWT signature by reading it from a file.<br>
 As `auth_jwt_key` also defines the expected key, it cannot be provided in the same scope.<hr>
 
     Syntax:	 auth_jwt_alg any | HS256 | HS384 | HS512 | RS256 | RS384 | RS512 | ES256 | ES384 | ES512;
-    Default: auth_jwt any;
+    Default: auth_jwt_alg any;
     Context: http, server, location
 
 Specifies which algorithm the server expects to receive in the JWT.
