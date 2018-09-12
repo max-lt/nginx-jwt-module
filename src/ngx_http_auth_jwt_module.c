@@ -6,9 +6,10 @@
 #include <jansson.h>
 
 typedef struct {
-  ngx_str_t jwt_key;          // forwarded key (with auth_jwt_key or auth_jwt_key_file)
-  ngx_int_t jwt_flag;         // function of "auth_jwt": on -> 1 | off -> 0 | $variable -> 2
-  ngx_int_t jwt_var_index;    // useful only if jwt_flag==2 to fetch the $variable value
+  ngx_str_t jwt_key;          // Forwarded key (with auth_jwt_key or auth_jwt_key_file)
+  ngx_int_t jwt_flag;         // Function of "auth_jwt": on -> 1 | off -> 0 | $variable -> 2
+  ngx_int_t jwt_var_index;    // Used only if jwt_flag==2 to fetch the $variable value
+  ngx_uint_t jwt_algorithm;
 } ngx_http_auth_jwt_loc_conf_t;
 
 #define NGX_HTTP_AUTH_JWT_OFF     0
@@ -18,6 +19,26 @@ typedef struct {
 #define NGX_HTTP_AUTH_JWT_ENCODING_HEX     0
 #define NGX_HTTP_AUTH_JWT_ENCODING_BASE64  1
 #define NGX_HTTP_AUTH_JWT_ENCODING_UTF8    2
+
+#define JWT_ALG_ANY JWT_ALG_NONE
+
+/*
+ * Enum of accepted jwt algorithms, mapped on the libjwt one.
+ * Note that the "any" string is mapped on the JWT_ALG_ANY=JWT_ALG_NONE value to avoid conflict with other ones.
+ */
+static ngx_conf_enum_t ngx_http_auth_jwt_algorithms[] = {
+  { ngx_string("HS256"), JWT_ALG_HS256 },
+  { ngx_string("HS384"), JWT_ALG_HS384 },
+  { ngx_string("HS512"), JWT_ALG_HS512 },
+  { ngx_string("RS256"), JWT_ALG_RS256 },
+  { ngx_string("RS384"), JWT_ALG_RS384 },
+  { ngx_string("RS512"), JWT_ALG_RS512 },
+  { ngx_string("ES256"), JWT_ALG_ES256 },
+  { ngx_string("ES384"), JWT_ALG_ES384 },
+  { ngx_string("ES512"), JWT_ALG_ES512 },
+  { ngx_string("ES512"), JWT_ALG_ES512 },
+  { ngx_string("any"), JWT_ALG_ANY }
+};
 
 static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r);
 static ngx_int_t auth_jwt_get_token(char **token, ngx_http_request_t *r, const ngx_http_auth_jwt_loc_conf_t *conf);
@@ -34,7 +55,7 @@ static char * ngx_conf_set_auth_jwt(ngx_conf_t *cf, ngx_command_t *cmd, void *co
 
 static ngx_command_t ngx_http_auth_jwt_commands[] = {
 
-  // auth_jwt_key "hexadecimal key";
+  // auth_jwt_key "hexadecimal key" [hex | base64 | utf8];
   { ngx_string("auth_jwt_key"),
     NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE12,
     ngx_conf_set_auth_jwt_key,
@@ -56,6 +77,14 @@ static ngx_command_t ngx_http_auth_jwt_commands[] = {
     NGX_HTTP_LOC_CONF_OFFSET,
     offsetof(ngx_http_auth_jwt_loc_conf_t, jwt_flag),
     NULL },
+
+  // auth_jwt_alg HS256 | HS384 | HS512 | RS256 | RS384 | RS512 | ES256 | ES384 | ES512;
+  { ngx_string("auth_jwt_alg"),
+    NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
+    ngx_conf_set_enum_slot,
+    NGX_HTTP_LOC_CONF_OFFSET,
+    offsetof(ngx_http_auth_jwt_loc_conf_t, jwt_algorithm),
+    &ngx_http_auth_jwt_algorithms },
 
   ngx_null_command
 };
@@ -126,7 +155,9 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
   }
 
   // Validate the algorithm
-  if (jwt_get_alg(jwt) == JWT_ALG_NONE)
+  jwt_alg_t alg = jwt_get_alg(jwt);
+  // Reject incoming token with a "none" algorithm, or, if auth_jwt_alg is set, those with a different one.
+  if (alg == JWT_ALG_NONE || (conf->jwt_algorithm != JWT_ALG_ANY && conf->jwt_algorithm != alg))
   {
     ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: invalid algorithm in jwt %d", jwt_get_alg(jwt));
     return NGX_HTTP_UNAUTHORIZED;
@@ -178,6 +209,7 @@ static void * ngx_http_auth_jwt_create_conf(ngx_conf_t *cf)
   ngx_str_null(&conf->jwt_key);
   conf->jwt_flag = NGX_CONF_UNSET;
   conf->jwt_var_index = NGX_CONF_UNSET;
+  conf->jwt_algorithm = NGX_CONF_UNSET_UINT;
 
   return conf;
 }
@@ -189,9 +221,9 @@ static char * ngx_http_auth_jwt_merge_conf(ngx_conf_t *cf, void *parent, void *c
   ngx_http_auth_jwt_loc_conf_t *conf = child;
 
   ngx_conf_merge_str_value(conf->jwt_key, prev->jwt_key, "");
-
   ngx_conf_merge_value(conf->jwt_var_index, prev->jwt_var_index, NGX_CONF_UNSET);
   ngx_conf_merge_value(conf->jwt_flag, prev->jwt_flag, NGX_CONF_UNSET);
+  ngx_conf_merge_uint_value(conf->jwt_algorithm, prev->jwt_algorithm, JWT_ALG_ANY);
 
   return NGX_CONF_OK;
 }

@@ -144,6 +144,16 @@ test_jwt "Secure test with valid jwt cookie - RS256" "/rsa-file-encoded/" "200" 
 
 test_jwt "Secure test with invalid jwt cookie - RS256" "/rsa-file-encoded/" "401" "--header \"Authorization: Bearer ${BAD_RS256}\""
 
+test_jwt "Secure test with valid jwt on restricted algoritm - RS256" "/restricted-alg/" "200" "--header \"Authorization: Bearer ${VALID_RS256}\""
+
+test_jwt "Secure test with valid jwt on non-restricted algoritm: expect RS256" "/any-alg/" "200" "--header \"Authorization: Bearer ${VALID_RS256}\""
+
+test_jwt "Secure test with valid jwt but invalid algoritm on restricted algoritm: expect RS256" "/restricted-alg/" "401" "--header \"Authorization: Bearer ${VALID_JWT}\""
+
+test_jwt "Secure test with valid jwt on restricted algoritm: expect HS256" "/restricted-alg-2/" "200" "--header \"Authorization: Bearer ${VALID_JWT}\""
+
+test_jwt "Secure test with valid jwt but invalid algoritm on restricted algoritm: expect HS256" "/restricted-alg-2/" "401" "--header \"Authorization: Bearer ${VALID_RS256}\""
+
 if [[ "$DOCKER_CONTAINER_NAME" == "0" ]]; then
   echo -e "${YELLOW}Warning: container identifier not set -> skipping configuration tests${NONE}"
   exit 1
