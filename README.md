@@ -19,9 +19,10 @@ This module is built inside a docker container, from the [alpine](https://hub.do
 
 ### Example Configuration:
 ```nginx
+auth_jwt     off; # ideally defined in the http context
+
 server {
     auth_jwt_key "0123456789abcdef" hex; # Your key as hex string
-    auth_jwt     off;
 
     location /secured-by-cookie/ {
         auth_jwt $cookie_MyCookieName;
