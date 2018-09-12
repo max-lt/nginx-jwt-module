@@ -222,7 +222,7 @@ static char * ngx_http_auth_jwt_merge_conf(ngx_conf_t *cf, void *parent, void *c
 
   ngx_conf_merge_str_value(conf->jwt_key, prev->jwt_key, "");
   ngx_conf_merge_value(conf->jwt_var_index, prev->jwt_var_index, NGX_CONF_UNSET);
-  ngx_conf_merge_value(conf->jwt_flag, prev->jwt_flag, NGX_CONF_UNSET);
+  ngx_conf_merge_value(conf->jwt_flag, prev->jwt_flag, NGX_HTTP_AUTH_JWT_OFF);
   ngx_conf_merge_uint_value(conf->jwt_algorithm, prev->jwt_algorithm, JWT_ALG_ANY);
 
   return NGX_CONF_OK;
