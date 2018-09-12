@@ -51,14 +51,15 @@ Enables validation of JWT.
     Default: ——
     Context: http, server, location
 
-Specifies the key for validating JWT signature (must be hexadecimal).
-The *encoding* otpion may be `hex | utf8 | base64` (default is utf8).
+Specifies the key for validating JWT signature (must be hexadecimal).<br>
+The *encoding* otpion may be `hex | utf8 | base64` (default is `utf8`).
 
     Syntax:	 auth_jwt_key_file filename;
     Default: ——
     Context: http, server, location
 
-Specifies a public key file for validating JWT signature.
+Specifies the key for validating JWT signature by reading it from a file.<br>
+As `auth_jwt_key` also defines the expected key, it cannot be provided in the same scope.
 
 ### Build:
 ```bash

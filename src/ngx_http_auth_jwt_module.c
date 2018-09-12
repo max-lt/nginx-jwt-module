@@ -416,7 +416,7 @@ static ngx_int_t auth_jwt_get_token(char ** token, ngx_http_request_t *r, const 
      return NGX_DECLINED;
     }
 
-    // If tha "Authorization" header does not starts with "Bearer ", return NULL.
+    // If the "Authorization" header does not starts with "Bearer ", return NULL.
     if (ngx_strncmp(header.data, bearer.data, bearer.len) != 0)
     {
       ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: Invalid authorization header content");
