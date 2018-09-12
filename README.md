@@ -8,7 +8,7 @@
 
 This is an NGINX module to check for a valid JWT.
 
-Inspired by [TeslaGov](https://github.com/TeslaGov/ngx-http-auth-jwt-module) and [ch1bo](https://github.com/ch1bo/nginx-jwt), this module is made to be as light as possible and remain simple.
+Inspired by [TeslaGov](https://github.com/TeslaGov/ngx-http-auth-jwt-module), [ch1bo](https://github.com/ch1bo/nginx-jwt) and [tizpuppi](https://github.com/tizpuppi/ngx_http_auth_jwt_module), this module intend to be as light as possible and to remain simple.
  - Docker image based on the [official nginx Dockerfile](https://github.com/nginxinc/docker-nginx) (alpine).
  - Light image (uncompressed: ~11MB, compressed: ~6MB).
 
@@ -45,21 +45,27 @@ server {
     Default: auth_jwt off;
     Context: http, server, location
 
-Enables validation of JWT.
+Enables validation of JWT.<hr>
 
     Syntax:	 auth_jwt_key string [encoding];
     Default: ——
     Context: http, server, location
 
 Specifies the key for validating JWT signature (must be hexadecimal).<br>
-The *encoding* otpion may be `hex | utf8 | base64` (default is `utf8`).
+The *encoding* otpion may be `hex | utf8 | base64` (default is `utf8`).<hr>
 
     Syntax:	 auth_jwt_key_file filename;
     Default: ——
     Context: http, server, location
 
 Specifies the key for validating JWT signature by reading it from a file.<br>
-As `auth_jwt_key` also defines the expected key, it cannot be provided in the same scope.
+As `auth_jwt_key` also defines the expected key, it cannot be provided in the same scope.<hr>
+
+    Syntax:	 auth_jwt_alg any | HS256 | HS384 | HS512 | RS256 | RS384 | RS512 | ES256 | ES384 | ES512;
+    Default: auth_jwt any;
+    Context: http, server, location
+
+Specifies which algorithm the server expects to receive in the JWT.
 
 ### Build:
 ```bash
