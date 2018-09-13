@@ -147,6 +147,8 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
     return NGX_HTTP_UNAUTHORIZED;
   }
 
+  ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0,"Found JWT: %s", jwt_data);
+
   // Validate the jwt
   if (jwt_decode(&jwt, jwt_data, conf->jwt_key.data, conf->jwt_key.len))
   {
