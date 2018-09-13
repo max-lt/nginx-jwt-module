@@ -468,7 +468,14 @@ static ngx_int_t auth_jwt_get_token(char ** token, ngx_http_request_t *r, const 
       return NGX_DECLINED;
     }
 
-    *token = (char *) value->data;
+    *token = ngx_pcalloc(r->pool, value->len + 1);
+    if (token == NULL)
+    {
+      ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "Could not allocate memory.");
+      return NGX_ERROR;
+    }
+    ngx_memcpy(*token, value->data, value->len);
+
     return NGX_OK;
   }
   else
