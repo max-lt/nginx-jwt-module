@@ -154,6 +154,8 @@ test_jwt "Secure test with valid jwt on restricted algoritm: expect HS256" "/res
 
 test_jwt "Secure test with valid jwt but invalid algoritm on restricted algoritm: expect HS256" "/restricted-alg-2/" "401" "--header \"Authorization: Bearer ${VALID_RS256}\""
 
+test_jwt "Secure test with valid jwt cookie, and unused cookies" "/secure-cookie/" "200" "--cookie \"rampartjwt=${VALID_JWT}; session=${VALID_JWT}\""
+
 if [[ "$DOCKER_CONTAINER_NAME" == "0" ]]; then
   echo -e "${YELLOW}Warning: container identifier not set -> skipping configuration tests${NONE}"
   exit 1
