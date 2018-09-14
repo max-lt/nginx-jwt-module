@@ -438,7 +438,7 @@ static u_char * auth_jwt_str_to_string(ngx_pool_t *pool, u_char *src, size_t len
 
   ngx_memcpy(dst, src, len);
 
-  dst[len + 1] = '\0';
+  dst[len] = '\0';
 
   return dst;
 }
