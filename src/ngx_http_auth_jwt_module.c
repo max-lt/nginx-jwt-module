@@ -41,7 +41,7 @@ static ngx_conf_enum_t ngx_http_auth_jwt_algorithms[] = {
 };
 
 static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r);
-static ngx_int_t auth_jwt_get_token(char **token, ngx_http_request_t *r, const ngx_http_auth_jwt_loc_conf_t *conf);
+static ngx_int_t auth_jwt_get_token(u_char **token, ngx_http_request_t *r, const ngx_http_auth_jwt_loc_conf_t *conf);
 
 // Configuration functions
 static ngx_int_t ngx_http_auth_jwt_init(ngx_conf_t *cf);
@@ -123,8 +123,8 @@ ngx_module_t ngx_http_auth_jwt_module = {
 
 static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 {
-  const ngx_http_auth_jwt_loc_conf_t * conf;
-  char* jwt_data;
+  const ngx_http_auth_jwt_loc_conf_t *conf;
+  u_char *jwt_data;
   jwt_t *jwt = NULL;
 
   conf = ngx_http_get_module_loc_conf(r, ngx_http_auth_jwt_module);
@@ -148,7 +148,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
   }
 
   // Validate the jwt
-  if (jwt_decode(&jwt, jwt_data, conf->jwt_key.data, conf->jwt_key.len))
+  if (jwt_decode(&jwt, (char *)jwt_data, conf->jwt_key.data, conf->jwt_key.len))
   {
     ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: failed to parse jwt");
     return NGX_HTTP_UNAUTHORIZED;
@@ -245,7 +245,7 @@ static int hex_to_binary(u_char* dest, u_char* src, const size_t n)
 
 
 // Parse auth_jwt_key_file directive
-static char *ngx_conf_set_auth_jwt_key_file(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+static char * ngx_conf_set_auth_jwt_key_file(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
   ngx_str_t *key = conf;
   ngx_str_t *args = cf->args->elts;
@@ -427,7 +427,24 @@ static char * ngx_conf_set_auth_jwt(ngx_conf_t *cf, ngx_command_t *cmd, void *co
 }
 
 
-static ngx_int_t auth_jwt_get_token(char ** token, ngx_http_request_t *r, const ngx_http_auth_jwt_loc_conf_t *conf)
+// Copy a character array into a null terminated one.
+static u_char * auth_jwt_str_to_string(ngx_pool_t *pool, u_char *src, size_t len) {
+  u_char  *dst;
+
+  dst = ngx_pcalloc(pool, len + 1);
+  if (dst == NULL) {
+    return NULL;
+  }
+
+  ngx_memcpy(dst, src, len);
+
+  dst[len + 1] = '\0';
+
+  return dst;
+}
+
+
+static ngx_int_t auth_jwt_get_token(u_char **token, ngx_http_request_t *r, const ngx_http_auth_jwt_loc_conf_t *conf)
 {
   static const ngx_str_t bearer = ngx_string("Bearer ");
   const ngx_int_t flag = conf->jwt_flag;
@@ -440,14 +457,12 @@ static ngx_int_t auth_jwt_get_token(char ** token, ngx_http_request_t *r, const 
     }
 
     ngx_str_t header = r->headers_in.authorization->value;
-    ngx_log_error(NGX_LOG_DEBUG, r->connection->log, 0, "JWT: Found authorization header [%s] len=%d", header.data, header.len);
 
-    if(header.len < bearer.len)
+    if(header.len < bearer.len + 1)
     {
      ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: Invalid Authorization length");
      return NGX_DECLINED;
     }
-
     // If the "Authorization" header does not starts with "Bearer ", return NULL.
     if (ngx_strncmp(header.data, bearer.data, bearer.len) != 0)
     {
@@ -455,8 +470,7 @@ static ngx_int_t auth_jwt_get_token(char ** token, ngx_http_request_t *r, const 
       return NGX_DECLINED;
     }
 
-    *token = (char *) header.data + bearer.len;
-    return NGX_OK;
+    *token = auth_jwt_str_to_string(r->pool, header.data + bearer.len, (size_t) header.len - bearer.len);
   }
   else if (flag == NGX_HTTP_AUTH_JWT_VALUE)
   {
@@ -468,15 +482,7 @@ static ngx_int_t auth_jwt_get_token(char ** token, ngx_http_request_t *r, const 
       return NGX_DECLINED;
     }
 
-    *token = ngx_pcalloc(r->pool, value->len + 1);
-    if (token == NULL)
-    {
-      ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "Could not allocate memory.");
-      return NGX_ERROR;
-    }
-    ngx_memcpy(*token, value->data, value->len);
-
-    return NGX_OK;
+    *token = auth_jwt_str_to_string(r->pool, value->data, value->len);
   }
   else
   {
@@ -484,5 +490,11 @@ static ngx_int_t auth_jwt_get_token(char ** token, ngx_http_request_t *r, const 
     return NGX_ERROR;
   }
 
-  return NGX_ERROR;
+  if (token == NULL)
+  {
+    ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "Could not allocate memory.");
+    return NGX_ERROR;
+  }
+
+  return NGX_OK;
 }
