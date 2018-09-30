@@ -18,7 +18,9 @@ if [[ "$1" == "--current" ]]; then
 elif [ -z "$1" ]; then
   echo "Building test image from jwt-nginx"
   DOCKER_IMAGE_NAME=jwt-nginx-test
-  docker build -f Dockerfile.test -t ${DOCKER_IMAGE_NAME} .
+  cd test-image
+  docker build -t ${DOCKER_IMAGE_NAME} .
+  cd ..
   if [ $? -ne 0 ]
   then
     echo -e "${RED}Build Failed${NONE}";
@@ -54,7 +56,7 @@ make_jwt() {
   local key=$2
   local header=`echo -n "{\"alg\":\"$alg\"}" | b64enc`
   local payload=`echo -n '{}' | b64enc`
-  local secret=`cat ./resources/keys/$key`
+  local secret=`cat ./test-image/nginx/keys/$key`
   local sig=`echo -n "$header.$payload" | rs_sign '256' "$secret" | b64enc`
   echo -n "$header.$payload.$sig"
   return 0
