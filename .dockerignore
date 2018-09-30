@@ -2,5 +2,5 @@
 **
 
 # Allow files and directories
-!/config
-!/src
+!config
+!src
