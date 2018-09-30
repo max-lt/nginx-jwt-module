@@ -1,7 +1,7 @@
 FROM jwt-nginx
 
 # Get nginx ready to run
-COPY resources /etc/nginx
+COPY nginx /etc/nginx
 
 EXPOSE 8000
 
