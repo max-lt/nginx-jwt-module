@@ -1,4 +1,4 @@
-keys_path = resources/keys
+keys_path = test-image/nginx/keys
 
 test/keys:
 	@mkdir $(keys_path)
