@@ -10,10 +10,7 @@ This is an NGINX module to check for a valid JWT.
 
 Inspired by [TeslaGov](https://github.com/TeslaGov/ngx-http-auth-jwt-module), [ch1bo](https://github.com/ch1bo/nginx-jwt) and [tizpuppi](https://github.com/tizpuppi/ngx_http_auth_jwt_module), this module intend to be as light as possible and to remain simple.
  - Docker image based on the [official nginx Dockerfile](https://github.com/nginxinc/docker-nginx) (alpine).
- - Light image (uncompressed: ~11MB, compressed: ~6MB).
-
-## Build:
-This module is built inside a docker container, from the [alpine](https://hub.docker.com/_/alpine/) image.
+ - Light image (~16MB).
 
 ## Module:
 
@@ -68,6 +65,8 @@ As `auth_jwt_key` also defines the expected key, it cannot be provided in the sa
 Specifies which algorithm the server expects to receive in the JWT.
 
 ### Build:
+This module is built inside a docker container, from the [alpine](https://hub.docker.com/_/alpine/) image.
+
 ```bash
 ./build # Will create a "jwt-nginx" (Dockerfile)
 ```
@@ -75,7 +74,7 @@ Specifies which algorithm the server expects to receive in the JWT.
 ### Test:
 #### Default usage:
 ```bash
-./test # Will create a "jwt-nginx-test" image from the "jwt-nginx" one (Dockerfile.test)
+./test # Will create a "jwt-nginx-test" (from test-image/Dockerfile) image based on the "jwt-nginx" one.
 ```
 #### Set image name:
 ```bash
@@ -83,14 +82,17 @@ Specifies which algorithm the server expects to receive in the JWT.
 ```
 example:
 ```bash
-./test jwt-nginx-s4 # tests the development image
+./test jwt-nginx-s1 # tests the development image*
 ```
 #### Use current container:
 ```bash
-./test --current container
+./test --current my-container
 ```
 example:
 ```bash
-# docker run --rm --name ngx-test -p 8000:8000 jwt-nginx-test
-./test --current ngx-test
+# In a first terminal:
+docker run --rm --name my-test-container -p 8000:8000 jwt-nginx-test
+
+# In a second one:
+./test --current my-test-container
 ```
