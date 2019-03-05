@@ -1,24 +1,42 @@
-FROM alpine:3.7
+FROM nginx:1.15.8-alpine
 
-RUN apk update
-RUN apk add --virtual .build-deps\
-    gcc \
-    libc-dev \
-    make \
-    openssl-dev \
-    \
-#    pcre-dev \
-    zlib-dev \
-    linux-headers \
-    curl \
-    gnupg \
-    libxslt-dev \
-    gd-dev \
-    \
-#    geoip-dev \
-    \
-    # libjwt build deps
-    autoconf automake libtool cmake check-dev
+ENV JWT_MODULE_PATH=/usr/local/lib/ngx-http-auth-jwt-module
+ENV LIBJWT_VERSION=1.9.0
 
-# libjwt runtime deps
-RUN apk add jansson-dev
+RUN apk add --no-cache \
+  # nginx
+  gcc \
+  libc-dev \
+  make \
+  openssl-dev \
+  pcre-dev \
+  zlib-dev \
+  linux-headers \
+  curl \
+  gnupg \
+  libxslt-dev \
+  gd-dev \
+  # libjwt
+  jansson-dev \
+  autoconf \
+  automake \
+  libtool \
+  cmake \
+  check-dev \
+  # jansson
+  jansson
+
+# BEGIN libjwt install
+RUN mkdir libjwt \
+  && curl -sL https://github.com/benmcollins/libjwt/archive/v$LIBJWT_VERSION.tar.gz \
+   | tar -zx -C libjwt/ --strip-components=1 \
+  && cd libjwt \
+  && autoreconf -i \
+  && ./configure \
+  && make all \
+  && make check \
+  && make install
+
+RUN curl -fSL http://nginx.org/download/nginx-$NGINX_VERSION.tar.gz -o nginx.tar.gz \
+  && tar -zxC /usr/src -f nginx.tar.gz \
+  && rm nginx.tar.gz

@@ -4,7 +4,7 @@ SCRIPT_PATH="$( cd "$(dirname "$0")" ; pwd -P )"
 
 cd ${SCRIPT_PATH}
 
-# usage: ./build.sh [sX] # With X the step to begin with (default 0)
+# usage: ./build [sX] # With X the step to begin with (default 0)
 
 set -e
 
@@ -14,33 +14,18 @@ BRANCH=$(git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/\1/')
 BRANCH=${BRANCH:-undefined}
 
 # Copy resources in docker's scope
-mkdir -p tmp && cp -r ../config ../resources ../src tmp
+mkdir -p tmp && cp -r ../config ../test-image ../src tmp
 
 case "$STEP" in
   "s0" )
-    echo "Step 0: get env"
-    docker build --file Dockerfile.s0 -t jwt-nginx-s0 .
+    echo "Step 0: get base"
+    docker build --file Dockerfile.s0 -t jwt-nginx-devel-s0 .
     echo "done step 0"
     ;&
   "s1" )
-    echo "Step 1: install libjwt"
-    docker build --file Dockerfile.s1 -t jwt-nginx-s1 .
+    echo "Step 1: build module"
+    docker build --file Dockerfile.s1 -t jwt-nginx-devel-s1 .
     echo "done step 1"
-    ;&
-   "s2")
-    echo "Step 2: get nginx"
-    docker build --file Dockerfile.s2 -t jwt-nginx-s2 .
-    echo "done step 2"
-    ;&
-   "s3")
-    echo "Step 3: build nginx"
-    docker build --file Dockerfile.s3 -t jwt-nginx-s3 .
-    echo "done step 3"
-    ;&
-   "s4" )
-    echo "Step 4: copy test files"
-    docker build --file Dockerfile.s4 -t jwt-nginx-s4 .
-    echo "done step 4"
     ;;
    * )
     echo "Invalid step $STEP"
@@ -48,10 +33,7 @@ case "$STEP" in
     ;;
 esac
 
-docker tag jwt-nginx-s0 jwt-nginx-s0:$BRANCH
-docker tag jwt-nginx-s1 jwt-nginx-s1:$BRANCH
-docker tag jwt-nginx-s2 jwt-nginx-s2:$BRANCH
-docker tag jwt-nginx-s3 jwt-nginx-s3:$BRANCH
-docker tag jwt-nginx-s4 jwt-nginx-s4:$BRANCH
+docker tag jwt-nginx-devel-s0 jwt-nginx-devel-s0:$BRANCH
+docker tag jwt-nginx-devel-s1 jwt-nginx-devel-s1:$BRANCH
 
 rm -rf tmp

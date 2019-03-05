@@ -1,16 +1,20 @@
-FROM jwt-nginx-s0
+FROM jwt-nginx-devel-s0
 
-# build libjwt
-ARG LIBJWT_VERSION=1.8.0
+RUN mkdir -p $JWT_MODULE_PATH/src
 
-RUN mkdir libjwt \
-  && curl -sL https://github.com/benmcollins/libjwt/archive/v$LIBJWT_VERSION.tar.gz \
-   | tar -zx -C libjwt/ --strip-components=1 \
-  && cd libjwt \
-  && autoreconf -i \
-  && ./configure \
-  && make all \
-  && make check \
-  && make install \
-  && cd .. \
-  && rm -fr libjwt
+ADD tmp/config $JWT_MODULE_PATH/config
+ADD tmp/src $JWT_MODULE_PATH/src
+
+RUN cd /usr/src/nginx-$NGINX_VERSION \
+  && ./configure --with-compat --add-dynamic-module=$JWT_MODULE_PATH \
+  && make modules
+
+ARG LIBJWT=libjwt.so.0.4.0
+
+ADD tmp/test-image/nginx /etc/nginx
+
+RUN mv /usr/src/nginx-1.15.8/objs/ngx_http_auth_jwt_module.so /usr/lib/nginx/modules
+RUN mv /usr/local/lib/${LIBJWT} /lib
+
+RUN ln -s /lib/${LIBJWT} /lib/libjwt.so.0
+RUN ln -s /lib/${LIBJWT} /lib/libjwt.so

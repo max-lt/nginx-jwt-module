@@ -4,13 +4,13 @@ set -e
 
 dest=headers
 
-image=jwt-nginx-s2
+image=jwt-nginx-devel-s1
 
 id=$(docker create $image)
 
 echo id:$id
 
-path='/usr/src/nginx-1.14.0/src/'
+path='/usr/src/nginx-1.15.8/src/'
 docker cp $id:$path $dest
 
 path='/usr/local/include/jwt.h'
