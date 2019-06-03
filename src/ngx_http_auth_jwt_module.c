@@ -602,6 +602,7 @@ static ngx_int_t ngx_http_auth_jwt_header_var(ngx_http_request_t *r, ngx_http_va
     ngx_memcpy(header, name->data + sizeof("jwt_header_") - 1, len);
     header[len] = '\0';
     const char *value = jwt_get_header(jwt, header);
+    if (!value) value = jwt_get_headers_json(jwt, header);
     if (!value) { v->not_found = 1; return NGX_OK; }
     v->data = (u_char *)value;
     v->len = ngx_strlen(value);
@@ -620,6 +621,7 @@ static ngx_int_t ngx_http_auth_jwt_grant_var(ngx_http_request_t *r, ngx_http_var
     ngx_memcpy(grant, name->data + sizeof("jwt_grant_") - 1, len);
     grant[len] = '\0';
     const char *value = jwt_get_grant(jwt, grant);
+    if (!value) value = jwt_get_grants_json(jwt, grant);
     if (!value) { v->not_found = 1; return NGX_OK; }
     v->data = (u_char *)value;
     v->len = ngx_strlen(value);
