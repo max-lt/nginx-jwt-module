@@ -155,6 +155,13 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
   }
   // jwt_decode succeded and allocated an jwt object.
   // From now on it is no longer allowed to return early!
+  ngx_pool_cleanup_t *cln = ngx_pool_cleanup_add(r->pool, 0);
+  if (cln == NULL) {
+    (void)jwt_free(jwt);
+    return NGX_ERROR;
+  }
+  cln->handler = (ngx_pool_cleanup_pt)jwt_free;
+  cln->data = jwt;
 
   // Validate the algorithm
   jwt_alg_t alg = jwt_get_alg(jwt);
@@ -177,7 +184,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
     }
   }
 
-  jwt_free(jwt);
+//  jwt_free(jwt);
 
   return status;
 }
