@@ -36,7 +36,7 @@ static ngx_conf_enum_t ngx_http_auth_jwt_algorithms[] = {
   { ngx_string("ES256"), JWT_ALG_ES256 },
   { ngx_string("ES384"), JWT_ALG_ES384 },
   { ngx_string("ES512"), JWT_ALG_ES512 },
-  { ngx_string("ES512"), JWT_ALG_ES512 },
+//  { ngx_string("ES512"), JWT_ALG_ES512 },
   { ngx_string("any"), JWT_ALG_ANY }
 };
 
