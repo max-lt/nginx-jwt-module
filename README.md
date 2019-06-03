@@ -67,6 +67,26 @@ As `auth_jwt_key` also defines the expected key, it cannot be provided in the sa
 
 Specifies which algorithm the server expects to receive in the JWT.
 
+### Embedded Variables:
+
+Module supports embedded variables:
+
+    $jwt_header
+
+returns whole header
+
+    $jwt_grant
+
+returns whole grant
+
+    $jwt_header_name
+
+returns header.name
+
+    $jwt_grant_name
+
+returns grant.name
+
 ### Build:
 ```bash
 ./build # Will create a "jwt-nginx" (Dockerfile)
