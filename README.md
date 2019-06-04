@@ -67,6 +67,20 @@ As `auth_jwt_key` also defines the expected key, it cannot be provided in the sa
 
 Specifies which algorithm the server expects to receive in the JWT.
 
+    Syntax:	 auth_jwt_header_set $variable name ...;
+    Default: ——
+    Context: http, server, location
+
+Sets the variable to a JOSE header parameter identified by key names.<br>
+Name matching starts from the top level of the JSON tree.
+
+    Syntax:	 auth_jwt_grant_set $variable name ...;
+    Default: ——
+    Context: http, server, location
+
+Sets the variable to a JWT grant parameter identified by key names.<br>
+Name matching starts from the top level of the JSON tree.
+
 ### Embedded Variables:
 
 Module supports embedded variables:
