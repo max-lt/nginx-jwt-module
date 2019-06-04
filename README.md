@@ -67,6 +67,8 @@ As `auth_jwt_key` also defines the expected key, it cannot be provided in the sa
 
 Specifies which algorithm the server expects to receive in the JWT.
 
+Following need [jwt_get_grants & jwt_get_headers](https://github.com/RekGRpth/libjwt/commit/e43f4b969b38904600e633e97793f8e1c16ae3f1)
+
     Syntax:	 auth_jwt_header_set $variable name ...;
     Default: ——
     Context: http, server, location
