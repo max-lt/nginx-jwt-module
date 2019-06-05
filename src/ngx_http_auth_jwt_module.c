@@ -116,28 +116,28 @@ static ngx_http_variable_t ngx_http_auth_jwt_variables[] = {{
     NULL,
     ngx_http_auth_jwt_header_json,
     0,
-    NGX_HTTP_VAR_NOCACHEABLE,
+    NGX_HTTP_VAR_CHANGEABLE,
     0
 }, {
     ngx_string("jwt_grant"),
     NULL,
     ngx_http_auth_jwt_grant_json,
     0,
-    NGX_HTTP_VAR_NOCACHEABLE,
+    NGX_HTTP_VAR_CHANGEABLE,
     0
 }, {
     ngx_string("jwt_header_"),
     NULL,
     ngx_http_auth_jwt_header_var,
     0,
-    NGX_HTTP_VAR_NOCACHEABLE|NGX_HTTP_VAR_PREFIX,
+    NGX_HTTP_VAR_CHANGEABLE|NGX_HTTP_VAR_PREFIX,
     0
 }, {
     ngx_string("jwt_grant_"),
     NULL,
     ngx_http_auth_jwt_grant_var,
     0,
-    NGX_HTTP_VAR_NOCACHEABLE|NGX_HTTP_VAR_PREFIX,
+    NGX_HTTP_VAR_CHANGEABLE|NGX_HTTP_VAR_PREFIX,
     0
 }, {
     ngx_null_string,
@@ -676,7 +676,7 @@ static char *ngx_conf_set_auth_jwt_header(ngx_conf_t *cf, ngx_command_t *cmd, vo
     if (value[1].data[0] != '$') { ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "invalid variable name \"%V\"", &value[1]); return NGX_CONF_ERROR; }
     value[1].len--;
     value[1].data++;
-    ngx_http_variable_t *v = ngx_http_add_variable(cf, &value[1], NGX_HTTP_VAR_NOCACHEABLE);
+    ngx_http_variable_t *v = ngx_http_add_variable(cf, &value[1], NGX_HTTP_VAR_CHANGEABLE);
     if (v == NULL) { return NGX_CONF_ERROR; }
     ngx_int_t index = ngx_http_get_variable_index(cf, &value[1]);
     if (index == NGX_ERROR) { return NGX_CONF_ERROR; }
@@ -720,7 +720,7 @@ static char *ngx_conf_set_auth_jwt_grant(ngx_conf_t *cf, ngx_command_t *cmd, voi
     if (value[1].data[0] != '$') { ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "invalid variable name \"%V\"", &value[1]); return NGX_CONF_ERROR; }
     value[1].len--;
     value[1].data++;
-    ngx_http_variable_t *v = ngx_http_add_variable(cf, &value[1], NGX_HTTP_VAR_NOCACHEABLE);
+    ngx_http_variable_t *v = ngx_http_add_variable(cf, &value[1], NGX_HTTP_VAR_CHANGEABLE);
     if (v == NULL) { return NGX_CONF_ERROR; }
     ngx_int_t index = ngx_http_get_variable_index(cf, &value[1]);
     if (index == NGX_ERROR) { return NGX_CONF_ERROR; }
