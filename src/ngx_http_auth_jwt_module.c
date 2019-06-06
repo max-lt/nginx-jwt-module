@@ -125,7 +125,6 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
   const ngx_http_auth_jwt_loc_conf_t *conf;
   u_char *jwt_data;
   jwt_t *jwt = NULL;
-  ngx_uint_t status = NGX_OK;
 
   conf = ngx_http_get_module_loc_conf(r, ngx_http_auth_jwt_module);
 
@@ -169,24 +168,16 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
   if (alg == JWT_ALG_NONE || (conf->jwt_algorithm != JWT_ALG_ANY && conf->jwt_algorithm != alg))
   {
     ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: invalid algorithm in jwt %d", jwt_get_alg(jwt));
-    status = NGX_HTTP_UNAUTHORIZED;
+    return NGX_HTTP_UNAUTHORIZED;
   }
 
-  // Continue validation only if previous tests have been passed.
-  if (status == NGX_OK)
+  // Validate the exp date of the JWT; Still valid if "exp" missing (exp == -1)
+  time_t exp = (time_t)jwt_get_grant_int(jwt, "exp");
+  if (exp != -1 && exp < time(NULL))
   {
-    // Validate the exp date of the JWT; Still valid if "exp" missing (exp == -1)
-    time_t exp = (time_t)jwt_get_grant_int(jwt, "exp");
-    if (exp != -1 && exp < time(NULL))
-    {
-      ngx_log_error(NGX_LOG_INFO, r->connection->log, 0, "JWT: the jwt has expired [exp=%ld]", (long)exp);
-      status = NGX_HTTP_UNAUTHORIZED;
-    }
+    ngx_log_error(NGX_LOG_INFO, r->connection->log, 0, "JWT: the jwt has expired [exp=%ld]", (long)exp);
+    return NGX_HTTP_UNAUTHORIZED;
   }
-
-//  jwt_free(jwt);
-
-  return status;
 }
 
 
