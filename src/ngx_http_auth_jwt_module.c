@@ -683,8 +683,6 @@ static char *ngx_conf_set_auth_jwt_header(ngx_conf_t *cf, ngx_command_t *cmd, vo
     value[1].data++;
     ngx_http_variable_t *v = ngx_http_add_variable(cf, &value[1], NGX_HTTP_VAR_CHANGEABLE);
     if (v == NULL) return NGX_CONF_ERROR;
-    ngx_int_t index = ngx_http_get_variable_index(cf, &value[1]);
-    if (index == NGX_ERROR) return NGX_CONF_ERROR;
     v->get_handler = ngx_http_auth_jwt_header_variable;
     ngx_array_t *args = ngx_array_create(cf->pool, cf->args->nelts - 2, sizeof(ngx_str_t));
     for (ngx_uint_t i = 2; i < cf->args->nelts; i++) {
@@ -728,8 +726,6 @@ static char *ngx_conf_set_auth_jwt_grant(ngx_conf_t *cf, ngx_command_t *cmd, voi
     value[1].data++;
     ngx_http_variable_t *v = ngx_http_add_variable(cf, &value[1], NGX_HTTP_VAR_CHANGEABLE);
     if (v == NULL) return NGX_CONF_ERROR;
-    ngx_int_t index = ngx_http_get_variable_index(cf, &value[1]);
-    if (index == NGX_ERROR) return NGX_CONF_ERROR;
     v->get_handler = ngx_http_auth_jwt_grant_variable;
     ngx_array_t *args = ngx_array_create(cf->pool, cf->args->nelts - 2, sizeof(ngx_str_t));
     for (ngx_uint_t i = 2; i < cf->args->nelts; i++) {
