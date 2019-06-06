@@ -13,7 +13,7 @@ typedef struct {
 } ngx_http_auth_jwt_loc_conf_t;
 
 #define NGX_HTTP_AUTH_JWT_OFF     0
-#define NGX_HTTP_AUTH_JWT_DEFAULT 1
+#define NGX_HTTP_AUTH_JWT_BEARER  1
 #define NGX_HTTP_AUTH_JWT_VALUE   2
 
 #define NGX_HTTP_AUTH_JWT_ENCODING_HEX     0
@@ -153,10 +153,11 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
     return NGX_HTTP_UNAUTHORIZED;
   }
   // jwt_decode succeded and allocated an jwt object.
-  // From now on it is no longer allowed to return early!
+  // We register jwt_free as a function to be called on pool cleanup.
   ngx_pool_cleanup_t *cln = ngx_pool_cleanup_add(r->pool, 0);
-  if (cln == NULL) {
-    (void)jwt_free(jwt);
+  if (cln == NULL)
+  {
+    jwt_free(jwt);
     return NGX_ERROR;
   }
   cln->handler = (ngx_pool_cleanup_pt)jwt_free;
@@ -178,6 +179,8 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
     ngx_log_error(NGX_LOG_INFO, r->connection->log, 0, "JWT: the jwt has expired [exp=%ld]", (long)exp);
     return NGX_HTTP_UNAUTHORIZED;
   }
+
+  return NGX_OK;
 }
 
 
@@ -234,14 +237,15 @@ static char * ngx_http_auth_jwt_merge_conf(ngx_conf_t *cf, void *parent, void *c
   return NGX_CONF_OK;
 }
 
-
+// Convert an hexadecimal string to a binary string
 static int hex_to_binary(u_char* dest, u_char* src, const size_t n)
 {
     u_char *p = &dest[0];
     ngx_int_t dst;
     for (size_t i = 0; i < n; i += 2) {
       dst = ngx_hextoi(&src[i], 2);
-      if (dst == NGX_ERROR || dst > 255) {
+      if (dst == NGX_ERROR || dst > 255)
+      {
         return NGX_ERROR;
       }
       *p++ = (u_char) dst;
@@ -359,7 +363,8 @@ static char * ngx_conf_set_auth_jwt_key(ngx_conf_t *cf, ngx_command_t *cmd, void
       key->len = ngx_base64_decoded_length(keystr->len);
       key->data = ngx_palloc(cf->pool, key->len);
 
-      if (ngx_decode_base64(key, keystr) != NGX_OK) {
+      if (ngx_decode_base64(key, keystr) != NGX_OK)
+      {
         ngx_conf_log_error(NGX_LOG_ERR, cf, 0, "JWT: Failed to turn base64 key into binary");
         return NGX_CONF_ERROR;
       }
@@ -384,7 +389,7 @@ static char * ngx_conf_set_auth_jwt(ngx_conf_t *cf, ngx_command_t *cmd, void *co
   ngx_int_t *flag = &ajcf->jwt_flag;
   ngx_int_t *index = &ajcf->jwt_var_index;
 
-  if(*flag != NGX_CONF_UNSET)
+  if (*flag != NGX_CONF_UNSET)
   {
     return "is duplicate";
   }
@@ -393,7 +398,7 @@ static char * ngx_conf_set_auth_jwt(ngx_conf_t *cf, ngx_command_t *cmd, void *co
 
   const ngx_str_t var = value[1];
 
-  if(var.len == 0)
+  if (var.len == 0)
   {
     ngx_conf_log_error(NGX_LOG_ERR, cf, 0, "JWT: Invalid value");
     return NGX_CONF_ERROR;
@@ -407,14 +412,14 @@ static char * ngx_conf_set_auth_jwt(ngx_conf_t *cf, ngx_command_t *cmd, void *co
   // If enabled and "on" we will get token from "Authorization" header.
   else if (var.len == 2 && ngx_strncmp(var.data, "on", 2) == 0)
   {
-    *flag = NGX_HTTP_AUTH_JWT_DEFAULT;
+    *flag = NGX_HTTP_AUTH_JWT_BEARER;
   }
   // Else we will get token from passed variable.
   else
   {
     *flag = NGX_HTTP_AUTH_JWT_VALUE;
 
-    if(var.data[0] != '$')
+    if (var.data[0] != '$')
     {
       ngx_conf_log_error(NGX_LOG_ERR, cf, 0, "JWT: Invalid variable name %s", var.data);
       return NGX_CONF_ERROR;
@@ -423,7 +428,8 @@ static char * ngx_conf_set_auth_jwt(ngx_conf_t *cf, ngx_command_t *cmd, void *co
     ngx_str_t str = { .data = var.data + 1, .len = var.len - 1 };
 
     *index = ngx_http_get_variable_index(cf, &str);
-    if (*index == NGX_ERROR) {
+    if (*index == NGX_ERROR)
+    {
       ngx_conf_log_error(NGX_LOG_ERR, cf, 0, "JWT: Can get index for {data: %s, len: %d}", var.data, var.len);
       return NGX_CONF_ERROR;
     }
@@ -434,11 +440,13 @@ static char * ngx_conf_set_auth_jwt(ngx_conf_t *cf, ngx_command_t *cmd, void *co
 
 
 // Copy a character array into a null terminated one.
-static u_char * auth_jwt_str_to_string(ngx_pool_t *pool, u_char *src, size_t len) {
+static u_char * auth_jwt_str_to_string(ngx_pool_t *pool, u_char *src, size_t len)
+{
   u_char  *dst;
 
   dst = ngx_pcalloc(pool, len + 1);
-  if (dst == NULL) {
+  if (dst == NULL)
+  {
     return NULL;
   }
 
@@ -455,16 +463,16 @@ static ngx_int_t auth_jwt_get_token(u_char **token, ngx_http_request_t *r, const
   static const ngx_str_t bearer = ngx_string("Bearer ");
   const ngx_int_t flag = conf->jwt_flag;
 
-  if(flag == NGX_HTTP_AUTH_JWT_DEFAULT)
+  if (flag == NGX_HTTP_AUTH_JWT_BEARER)
   {
-    if(r->headers_in.authorization == NULL)
+    if (r->headers_in.authorization == NULL)
     {
       return NGX_DECLINED;
     }
 
     ngx_str_t header = r->headers_in.authorization->value;
 
-    if(header.len < bearer.len + 1)
+    if (header.len < bearer.len + 1)
     {
      ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: Invalid Authorization length");
      return NGX_DECLINED;
@@ -482,7 +490,7 @@ static ngx_int_t auth_jwt_get_token(u_char **token, ngx_http_request_t *r, const
   {
     ngx_http_variable_value_t * value = ngx_http_get_indexed_variable(r, conf->jwt_var_index);
 
-    if(value == NULL || value->not_found || value->len == 0)
+    if (value == NULL || value->not_found || value->len == 0)
     {
       ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: Variable not found or empty.");
       return NGX_DECLINED;
