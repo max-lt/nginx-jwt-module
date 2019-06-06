@@ -1,4 +1,4 @@
-FROM nginx:1.15.8-alpine as base
+FROM nginx:1.15.12-alpine as base
 
 FROM base as builder
 
@@ -33,7 +33,7 @@ RUN apk add --no-cache \
 
 # BEGIN libjwt install
 RUN mkdir libjwt \
-  && curl -sL https://github.com/benmcollins/libjwt/archive/v$LIBJWT_VERSION.tar.gz \
+  && curl -sL https://github.com/benmcollins/libjwt/archive/v${LIBJWT_VERSION}.tar.gz \
    | tar -zx -C libjwt/ --strip-components=1 \
   && cd libjwt \
   && autoreconf -i \
@@ -42,10 +42,10 @@ RUN mkdir libjwt \
   && make check \
   && make install
 
-RUN curl -fSL http://nginx.org/download/nginx-$NGINX_VERSION.tar.gz -o nginx.tar.gz \
+RUN curl -fSL http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz -o nginx.tar.gz \
   && tar -zxC /usr/src -f nginx.tar.gz \
   && rm nginx.tar.gz \
-  && cd /usr/src/nginx-$NGINX_VERSION \
+  && cd /usr/src/nginx-${NGINX_VERSION} \
   && ./configure --with-compat --add-dynamic-module=$JWT_MODULE_PATH \
   && make modules
 
@@ -53,7 +53,7 @@ FROM base
 
 ARG LIBJWT=libjwt.so.0.4.0
 
-COPY --from=builder /usr/src/nginx-1.15.8/objs/ngx_http_auth_jwt_module.so /usr/lib/nginx/modules/ngx_http_auth_jwt_module.so
+COPY --from=builder /usr/src/nginx-${NGINX_VERSION}/objs/ngx_http_auth_jwt_module.so /usr/lib/nginx/modules/ngx_http_auth_jwt_module.so
 COPY --from=builder /usr/local/lib/${LIBJWT} /lib
 
 RUN apk add --no-cache jansson \
