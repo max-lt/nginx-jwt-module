@@ -33,6 +33,11 @@ server {
         auth_jwt on;
     }
 
+    location /secured-by-rsa-key/ {
+        auth_jwt_key /etc/keys/rsa-public.pem file; # Your key from a PEM file
+        auth_jwt on;
+    }
+
     location /not-secure/ {}
 }
 ```
@@ -47,19 +52,15 @@ server {
 
 Enables validation of JWT.<hr>
 
-    Syntax:	 auth_jwt_key string [encoding];
+    Syntax:	 auth_jwt_key value [encoding];
     Default: ——
     Context: http, server, location
 
 Specifies the key for validating JWT signature (must be hexadecimal).<br>
-The *encoding* otpion may be `hex | utf8 | base64` (default is `utf8`).<hr>
+The *encoding* otpion may be `hex | utf8 | base64 | file` (default is `utf8`).<br>
+The `file` option requires the *value* to be a valid file path (pointing to a PEM encoded key).
 
-    Syntax:	 auth_jwt_key_file filename;
-    Default: ——
-    Context: http, server, location
-
-Specifies the key for validating JWT signature by reading it from a file.<br>
-As `auth_jwt_key` also defines the expected key, it cannot be provided in the same scope.<hr>
+<hr>
 
     Syntax:	 auth_jwt_alg any | HS256 | HS384 | HS512 | RS256 | RS384 | RS512 | ES256 | ES384 | ES512;
     Default: auth_jwt_alg any;

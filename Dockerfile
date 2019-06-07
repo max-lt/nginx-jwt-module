@@ -7,9 +7,6 @@ ARG LIBJWT_VERSION=1.9.0
 
 RUN mkdir -p $JWT_MODULE_PATH/src
 
-ADD config $JWT_MODULE_PATH/config
-ADD src $JWT_MODULE_PATH/src
-
 RUN apk add --no-cache \
   # nginx
   gcc \
@@ -44,8 +41,12 @@ RUN mkdir libjwt \
 
 RUN curl -fSL http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz -o nginx.tar.gz \
   && tar -zxC /usr/src -f nginx.tar.gz \
-  && rm nginx.tar.gz \
-  && cd /usr/src/nginx-${NGINX_VERSION} \
+  && rm nginx.tar.gz
+
+ADD config $JWT_MODULE_PATH/config
+ADD src $JWT_MODULE_PATH/src
+
+RUN cd /usr/src/nginx-${NGINX_VERSION} \
   && ./configure --with-compat --add-dynamic-module=$JWT_MODULE_PATH \
   && make modules
 

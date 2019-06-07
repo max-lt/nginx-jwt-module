@@ -6,7 +6,7 @@
 #include <jansson.h>
 
 typedef struct {
-  ngx_str_t jwt_key;          // Forwarded key (with auth_jwt_key or auth_jwt_key_file)
+  ngx_str_t jwt_key;          // Forwarded key (with auth_jwt_key)
   ngx_int_t jwt_flag;         // Function of "auth_jwt": on -> 1 | off -> 0 | $variable -> 2
   ngx_int_t jwt_var_index;    // Used only if jwt_flag==2 to fetch the $variable value
   ngx_uint_t jwt_algorithm;
@@ -41,6 +41,8 @@ static ngx_conf_enum_t ngx_http_auth_jwt_algorithms[] = {
 
 static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r);
 static ngx_int_t auth_jwt_get_token(u_char **token, ngx_http_request_t *r, const ngx_http_auth_jwt_loc_conf_t *conf);
+static char * auth_jwt_key_from_file(ngx_conf_t *cf, const char *path, ngx_str_t *key);
+static u_char * auth_jwt_safe_string(ngx_pool_t *pool, u_char *src, size_t len);
 
 // Configuration functions
 static ngx_int_t ngx_http_auth_jwt_init(ngx_conf_t *cf);
@@ -48,7 +50,6 @@ static void * ngx_http_auth_jwt_create_conf(ngx_conf_t *cf);
 static char * ngx_http_auth_jwt_merge_conf(ngx_conf_t *cf, void *parent, void *child);
 
 // Declaration functions
-static char * ngx_conf_set_auth_jwt_key_file(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static char * ngx_conf_set_auth_jwt_key(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static char * ngx_conf_set_auth_jwt(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
@@ -58,13 +59,6 @@ static ngx_command_t ngx_http_auth_jwt_commands[] = {
   { ngx_string("auth_jwt_key"),
     NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE12,
     ngx_conf_set_auth_jwt_key,
-    NGX_HTTP_LOC_CONF_OFFSET,
-    offsetof(ngx_http_auth_jwt_loc_conf_t, jwt_key),
-    NULL },
-
-  { ngx_string("auth_jwt_key_file"),
-    NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE1,
-    ngx_conf_set_auth_jwt_key_file,
     NGX_HTTP_LOC_CONF_OFFSET,
     offsetof(ngx_http_auth_jwt_loc_conf_t, jwt_key),
     NULL },
@@ -255,28 +249,18 @@ static int hex_to_binary(u_char* dest, u_char* src, const size_t n)
 }
 
 
-// Parse auth_jwt_key_file directive
-static char * ngx_conf_set_auth_jwt_key_file(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+// Assign key from file
+static char * auth_jwt_key_from_file(ngx_conf_t *cf, const char *path, ngx_str_t *key)
 {
-  ngx_str_t *key = conf;
-  ngx_str_t *args = cf->args->elts;
-  char *key_file = (char *)args[1].data;
-
-  // If jwt_key.data not null
-  if (key->data != NULL)
-  {
-    return "is duplicate";
-  }
-
   // Determine file size (avoiding fseek)
   struct stat fstat;
-  if (stat(key_file, &fstat) < 0)
+  if (stat(path, &fstat) < 0)
   {
     ngx_conf_log_error(NGX_LOG_ERR, cf, errno, strerror(errno));
     return NGX_CONF_ERROR;
   }
 
-  FILE *fp = fopen(key_file, "rb");
+  FILE *fp = fopen(path, "rb");
   if (fp == NULL)
   {
     ngx_conf_log_error(NGX_LOG_ERR, cf, errno, strerror(errno));
@@ -288,7 +272,7 @@ static char * ngx_conf_set_auth_jwt_key_file(ngx_conf_t *cf, ngx_command_t *cmd,
 
   if (fread(key->data, 1, key->len, fp) != key->len)
   {
-    ngx_conf_log_error(NGX_LOG_ERR, cf, 0, "jwt_key_file: unexpected end of file");
+    ngx_conf_log_error(NGX_LOG_ERR, cf, 0, "jwt_key file: unexpected end of file");
     fclose(fp);
     return NGX_CONF_ERROR;
   }
@@ -319,9 +303,15 @@ static char * ngx_conf_set_auth_jwt_key(ngx_conf_t *cf, ngx_command_t *cmd, void
   {
     encoding = NGX_HTTP_AUTH_JWT_ENCODING_UTF8;
   }
+  // We can have (auth_jwt_key value [encoding | file])
   else if (cf->args->nelts == 3)
   {
-    if (ngx_strcmp(value[2].data, "hex") == 0)
+    if (ngx_strcmp(value[2].data, "file") == 0)
+    {
+      const char *path = (char *)auth_jwt_safe_string(cf->pool, value[1].data, value[1].len);
+      return auth_jwt_key_from_file(cf, path, key);
+    }
+    else if (ngx_strcmp(value[2].data, "hex") == 0)
       encoding = NGX_HTTP_AUTH_JWT_ENCODING_HEX;
     else if (ngx_strcmp(value[2].data, "base64") == 0)
       encoding = NGX_HTTP_AUTH_JWT_ENCODING_BASE64;
