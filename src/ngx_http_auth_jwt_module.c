@@ -55,7 +55,7 @@ static char * ngx_conf_set_auth_jwt(ngx_conf_t *cf, ngx_command_t *cmd, void *co
 
 static ngx_command_t ngx_http_auth_jwt_commands[] = {
 
-  // auth_jwt_key "hexadecimal key" [hex | base64 | utf8];
+  // auth_jwt_key value [hex | base64 | utf8 | file];
   { ngx_string("auth_jwt_key"),
     NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE12,
     ngx_conf_set_auth_jwt_key,
@@ -268,7 +268,7 @@ static char * auth_jwt_key_from_file(ngx_conf_t *cf, const char *path, ngx_str_t
   }
 
   key->len = fstat.st_size;
-  key->data = calloc(key->len, 1);
+  key->data = ngx_pcalloc(cf->pool, key->len);
 
   if (fread(key->data, 1, key->len, fp) != key->len)
   {
