@@ -36,6 +36,9 @@ server {
     location /not-secure/ {}
 }
 ```
+
+> Note: don't forget to [load](http://nginx.org/en/docs/ngx_core_module.html#load_module) the module in the main context: <br>`load_module /usr/lib/nginx/modules/ngx_http_auth_jwt_module.so;`
+
 ### Directives:
 
     Syntax:	 auth_jwt $variable | on | off;

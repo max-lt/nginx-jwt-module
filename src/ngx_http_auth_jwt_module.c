@@ -12,9 +12,9 @@ typedef struct {
   ngx_uint_t jwt_algorithm;
 } ngx_http_auth_jwt_loc_conf_t;
 
-#define NGX_HTTP_AUTH_JWT_OFF     0
-#define NGX_HTTP_AUTH_JWT_BEARER  1
-#define NGX_HTTP_AUTH_JWT_VALUE   2
+#define NGX_HTTP_AUTH_JWT_OFF        0
+#define NGX_HTTP_AUTH_JWT_BEARER     1
+#define NGX_HTTP_AUTH_JWT_VARIABLE   2
 
 #define NGX_HTTP_AUTH_JWT_ENCODING_HEX     0
 #define NGX_HTTP_AUTH_JWT_ENCODING_BASE64  1
@@ -140,6 +140,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
     return NGX_DECLINED;
   }
 
+  // Get jwt
   if (auth_jwt_get_token(&jwt_data, r, conf) != NGX_OK)
   {
     ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: failed to find a jwt");
@@ -417,7 +418,7 @@ static char * ngx_conf_set_auth_jwt(ngx_conf_t *cf, ngx_command_t *cmd, void *co
   // Else we will get token from passed variable.
   else
   {
-    *flag = NGX_HTTP_AUTH_JWT_VALUE;
+    *flag = NGX_HTTP_AUTH_JWT_VARIABLE;
 
     if (var.data[0] != '$')
     {
@@ -440,7 +441,7 @@ static char * ngx_conf_set_auth_jwt(ngx_conf_t *cf, ngx_command_t *cmd, void *co
 
 
 // Copy a character array into a null terminated one.
-static u_char * auth_jwt_str_to_string(ngx_pool_t *pool, u_char *src, size_t len)
+static u_char * auth_jwt_safe_string(ngx_pool_t *pool, u_char *src, size_t len)
 {
   u_char  *dst;
 
@@ -472,6 +473,7 @@ static ngx_int_t auth_jwt_get_token(u_char **token, ngx_http_request_t *r, const
 
     ngx_str_t header = r->headers_in.authorization->value;
 
+    // If the "Authorization" header value is less than "Bearer X" length, there is no reason to continue.
     if (header.len < bearer.len + 1)
     {
      ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: Invalid Authorization length");
@@ -484,9 +486,9 @@ static ngx_int_t auth_jwt_get_token(u_char **token, ngx_http_request_t *r, const
       return NGX_DECLINED;
     }
 
-    *token = auth_jwt_str_to_string(r->pool, header.data + bearer.len, (size_t) header.len - bearer.len);
+    *token = auth_jwt_safe_string(r->pool, header.data + bearer.len, (size_t) header.len - bearer.len);
   }
-  else if (flag == NGX_HTTP_AUTH_JWT_VALUE)
+  else if (flag == NGX_HTTP_AUTH_JWT_VARIABLE)
   {
     ngx_http_variable_value_t * value = ngx_http_get_indexed_variable(r, conf->jwt_var_index);
 
@@ -496,7 +498,7 @@ static ngx_int_t auth_jwt_get_token(u_char **token, ngx_http_request_t *r, const
       return NGX_DECLINED;
     }
 
-    *token = auth_jwt_str_to_string(r->pool, value->data, value->len);
+    *token = auth_jwt_safe_string(r->pool, value->data, value->len);
   }
   else
   {
