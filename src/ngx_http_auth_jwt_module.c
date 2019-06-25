@@ -45,6 +45,7 @@ static char * auth_jwt_key_from_file(ngx_conf_t *cf, const char *path, ngx_str_t
 static u_char * auth_jwt_safe_string(ngx_pool_t *pool, u_char *src, size_t len);
 
 // Configuration functions
+static ngx_int_t ngx_http_auth_jwt_add_variables(ngx_conf_t *cf);
 static ngx_int_t ngx_http_auth_jwt_init(ngx_conf_t *cf);
 static void * ngx_http_auth_jwt_create_conf(ngx_conf_t *cf);
 static char * ngx_http_auth_jwt_merge_conf(ngx_conf_t *cf, void *parent, void *child);
@@ -52,6 +53,11 @@ static char * ngx_http_auth_jwt_merge_conf(ngx_conf_t *cf, void *parent, void *c
 // Declaration functions
 static char * ngx_conf_set_auth_jwt_key(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static char * ngx_conf_set_auth_jwt(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
+
+static ngx_int_t ngx_http_auth_jwt_header_json(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_http_auth_jwt_grant_json(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_http_auth_jwt_header_var(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
+static ngx_int_t ngx_http_auth_jwt_grant_var(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
 
 static ngx_command_t ngx_http_auth_jwt_commands[] = {
 
@@ -82,9 +88,46 @@ static ngx_command_t ngx_http_auth_jwt_commands[] = {
   ngx_null_command
 };
 
+static ngx_http_variable_t ngx_http_auth_jwt_variables[] = {{
+    ngx_string("jwt_header"),
+    NULL,
+    ngx_http_auth_jwt_header_json,
+    0,
+    NGX_HTTP_VAR_CHANGEABLE,
+    0
+}, {
+    ngx_string("jwt_grant"),
+    NULL,
+    ngx_http_auth_jwt_grant_json,
+    0,
+    NGX_HTTP_VAR_CHANGEABLE,
+    0
+}, {
+    ngx_string("jwt_header_"),
+    NULL,
+    ngx_http_auth_jwt_header_var,
+    0,
+    NGX_HTTP_VAR_CHANGEABLE|NGX_HTTP_VAR_PREFIX,
+    0
+}, {
+    ngx_string("jwt_grant_"),
+    NULL,
+    ngx_http_auth_jwt_grant_var,
+    0,
+    NGX_HTTP_VAR_CHANGEABLE|NGX_HTTP_VAR_PREFIX,
+    0
+}, {
+    ngx_null_string,
+    NULL,
+    NULL,
+    0,
+    0,
+    0
+}};
+
 
 static ngx_http_module_t ngx_http_auth_jwt_module_ctx = {
-  NULL,                        /* preconfiguration */
+  ngx_http_auth_jwt_add_variables, /* preconfiguration */
   ngx_http_auth_jwt_init,      /* postconfiguration */
 
   NULL,                        /* create main configuration */
@@ -173,6 +216,8 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
   {
     ngx_log_error(NGX_LOG_INFO, r->connection->log, 0, "JWT: the jwt has expired [exp=%ld]", (long)exp);
     return NGX_HTTP_UNAUTHORIZED;
+  } else {
+    ngx_http_set_ctx(r, jwt, ngx_http_auth_jwt_module);
   }
 
   return NGX_OK;
@@ -503,4 +548,81 @@ static ngx_int_t auth_jwt_get_token(u_char **token, ngx_http_request_t *r, const
   }
 
   return NGX_OK;
+}
+
+static ngx_int_t ngx_http_auth_jwt_add_variables(ngx_conf_t *cf) {
+    for (ngx_http_variable_t *v = ngx_http_auth_jwt_variables; v->name.len; v++) {
+        ngx_http_variable_t *var = ngx_http_add_variable(cf, &v->name, v->flags);
+        if (!var) return NGX_ERROR;
+        *var = *v;
+    }
+    return NGX_OK;
+}
+
+static ngx_int_t ngx_http_auth_jwt_header_json(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data) {
+    v->not_found = 1;
+    jwt_t *jwt = ngx_http_get_module_ctx(r, ngx_http_auth_jwt_module);
+    if (!jwt) return NGX_OK;
+    const char *value = jwt_get_headers_json(jwt, NULL);
+    if (!value) return NGX_OK;
+    v->data = (u_char *)value;
+    v->len = ngx_strlen(value);
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+    return NGX_OK;
+}
+
+static ngx_int_t ngx_http_auth_jwt_grant_json(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data) {
+    v->not_found = 1;
+    jwt_t *jwt = ngx_http_get_module_ctx(r, ngx_http_auth_jwt_module);
+    if (!jwt) return NGX_OK;
+    const char *value = jwt_get_grants_json(jwt, NULL);
+    if (!value) return NGX_OK;
+    v->data = (u_char *)value;
+    v->len = ngx_strlen(value);
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+    return NGX_OK;
+}
+
+static ngx_int_t ngx_http_auth_jwt_header_var(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data) {
+    v->not_found = 1;
+    jwt_t *jwt = ngx_http_get_module_ctx(r, ngx_http_auth_jwt_module);
+    if (!jwt) return NGX_OK;
+    ngx_str_t *name = (ngx_str_t *)data;
+    size_t len = name->len - (sizeof("jwt_header_") - 1);
+    char header[len + 1];
+    ngx_memcpy(header, name->data + sizeof("jwt_header_") - 1, len);
+    header[len] = '\0';
+    const char *value = jwt_get_header(jwt, header);
+    if (!value) value = jwt_get_headers_json(jwt, header);
+    if (!value) return NGX_OK;
+    v->data = (u_char *)value;
+    v->len = ngx_strlen(value);
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+    return NGX_OK;
+}
+
+static ngx_int_t ngx_http_auth_jwt_grant_var(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data) {
+    v->not_found = 1;
+    jwt_t *jwt = ngx_http_get_module_ctx(r, ngx_http_auth_jwt_module);
+    if (!jwt) return NGX_OK;
+    ngx_str_t *name = (ngx_str_t *)data;
+    size_t len = name->len - (sizeof("jwt_grant_") - 1);
+    char grant[len + 1];
+    ngx_memcpy(grant, name->data + sizeof("jwt_grant_") - 1, len);
+    grant[len] = '\0';
+    const char *value = jwt_get_grant(jwt, grant);
+    if (!value) value = jwt_get_grants_json(jwt, grant);
+    if (!value) return NGX_OK;
+    v->data = (u_char *)value;
+    v->len = ngx_strlen(value);
+    v->valid = 1;
+    v->no_cacheable = 0;
+    v->not_found = 0;
+    return NGX_OK;
 }

@@ -68,6 +68,26 @@ The `file` option requires the *value* to be a valid file path (pointing to a PE
 
 Specifies which algorithm the server expects to receive in the JWT.
 
+### Embedded Variables:
+
+Module supports embedded variables:
+
+    $jwt_header
+
+returns whole header
+
+    $jwt_grant
+
+returns whole grant
+
+    $jwt_header_name
+
+returns header.name
+
+    $jwt_grant_name
+
+returns grant.name
+
 ### Build:
 This module is built inside a docker container, from the [nginx](https://hub.docker.com/_/nginx/)-alpine image.
 
