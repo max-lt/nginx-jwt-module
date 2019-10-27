@@ -72,25 +72,25 @@ Specifies which algorithm the server expects to receive in the JWT.
 This module is built inside a docker container, from the [nginx](https://hub.docker.com/_/nginx/)-alpine image.
 
 ```bash
-./build # Will create a "jwt-nginx" (Dockerfile)
+./build.sh # Will create a "jwt-nginx" (Dockerfile)
 ```
 
 ### Test:
 #### Default usage:
 ```bash
-./test # Will create a "jwt-nginx-test" image (from test-image/Dockerfile) based on the "jwt-nginx" one.
+./test.sh # Will create a "jwt-nginx-test" image (from test-image/Dockerfile) based on the "jwt-nginx" one.
 ```
 #### Set image name:
 ```bash
-./test your-image-to-test
+./test.sh your-image-to-test
 ```
 example:
 ```bash
-./test jwt-nginx-s1 # tests the development image
+./test.sh jwt-nginx-s1 # tests the development image
 ```
 #### Use current container:
 ```bash
-./test --current my-container
+./test.sh --current my-container
 ```
 example:
 ```bash
@@ -98,5 +98,5 @@ example:
 docker run --rm --name my-test-container -p 8000:8000 jwt-nginx-test
 
 # In a second one:
-./test --current my-test-container
+./test.sh --current my-test-container
 ```
