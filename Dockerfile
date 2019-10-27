@@ -1,4 +1,4 @@
-FROM nginx:1.15.12-alpine as base
+FROM nginx:1.16.1-alpine as base
 
 FROM base as builder
 
@@ -40,6 +40,7 @@ RUN mkdir libjwt \
   && make install
 
 RUN curl -fSL http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz -o nginx.tar.gz \
+  && mkdir -p /usr/src \
   && tar -zxC /usr/src -f nginx.tar.gz \
   && rm nginx.tar.gz
 
