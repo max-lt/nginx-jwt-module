@@ -1,9 +1,9 @@
-FROM nginx:1.16.1-alpine as base
+FROM nginx:1.19.2-alpine as base
 
 FROM base as builder
 
 ARG JWT_MODULE_PATH=/usr/local/lib/ngx-http-auth-jwt-module
-ARG LIBJWT_VERSION=1.9.0
+ARG LIBJWT_VERSION=1.12.0
 
 RUN mkdir -p $JWT_MODULE_PATH/src
 
@@ -36,7 +36,7 @@ RUN mkdir libjwt \
   && autoreconf -i \
   && ./configure \
   && make all \
-  && make check \
+  # && make check \
   && make install
 
 RUN curl -fSL http://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz -o nginx.tar.gz \
@@ -53,7 +53,7 @@ RUN cd /usr/src/nginx-${NGINX_VERSION} \
 
 FROM base
 
-ARG LIBJWT=libjwt.so.0.4.0
+ARG LIBJWT=libjwt.so.0.7.0
 
 COPY --from=builder /usr/src/nginx-${NGINX_VERSION}/objs/ngx_http_auth_jwt_module.so /usr/lib/nginx/modules/ngx_http_auth_jwt_module.so
 COPY --from=builder /usr/local/lib/${LIBJWT} /lib
@@ -62,3 +62,4 @@ RUN apk add --no-cache jansson \
   && sed -i '1iload_module modules/ngx_http_auth_jwt_module.so;' /etc/nginx/nginx.conf \
   && ln -s /lib/${LIBJWT} /lib/libjwt.so.0 \
   && ln -s /lib/${LIBJWT} /lib/libjwt.so
+ 
