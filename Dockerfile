@@ -60,5 +60,5 @@ COPY --from=builder /usr/local/lib/${LIBJWT} /lib
 
 RUN apk add --no-cache jansson \
   && sed -i '1iload_module modules/ngx_http_auth_jwt_module.so;' /etc/nginx/nginx.conf \
-  && ln -s /lib/${LIBJWT} /lib/libjwt.so.0 \
+  && ln -s /lib/${LIBJWT} /lib/libjwt.so.1 \
   && ln -s /lib/${LIBJWT} /lib/libjwt.so
