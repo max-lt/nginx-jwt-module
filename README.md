@@ -38,6 +38,16 @@ server {
         auth_jwt on;
     }
 
+    location /secured-by-claim/ {
+        auth_jwt_claim claim_name claim_value;
+        auth_jwt on;
+    }
+
+    location /secured-by-claim-variable/ {
+        auth_jwt_claim claim_name $uri;
+        auth_jwt on;
+    }
+
     location /not-secure/ {}
 }
 ```
@@ -67,6 +77,13 @@ The `file` option requires the *value* to be a valid file path (pointing to a PE
     Context: http, server, location
 
 Specifies which algorithm the server expects to receive in the JWT.
+
+<hr>
+
+    Syntax:	 auth_jwt_claim key value;
+    Context: http, server, location
+
+Specifies Jwt must have this claim. This config can be used multiple times.
 
 ### Build:
 This module is built inside a docker container, from the [nginx](https://hub.docker.com/_/nginx/)-alpine image.
