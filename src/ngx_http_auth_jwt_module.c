@@ -1,4 +1,3 @@
-
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_http.h>
@@ -14,10 +13,10 @@ typedef struct {
   ngx_array_t* jwt_claims;
 } ngx_http_auth_jwt_loc_conf_t;
 
-typedef struct{
-  ngx_str_t key;              //Claim Name
+typedef struct {
+  ngx_str_t key;              // Claim Name
   ngx_str_t value;            // Claim Value
-  ngx_int_t var_index;        // if claim value was variable var_index cotains variable index. if variable index not found = -1
+  ngx_int_t var_index;        // If claim value was variable var_index cotains variable index. if variable index not found = -1
 } ngx_http_auth_jwt_claim_conf_t;
 
 #define NGX_HTTP_AUTH_JWT_OFF        0
@@ -90,11 +89,12 @@ static ngx_command_t ngx_http_auth_jwt_commands[] = {
     &ngx_http_auth_jwt_algorithms },
 
   { ngx_string("auth_jwt_claim"),  
-      NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE2,  
-      ngx_conf_set_auth_jwt_claim,//ngx_conf_set_keyval_slot,  
-      NGX_HTTP_LOC_CONF_OFFSET,  
-      offsetof(ngx_http_auth_jwt_loc_conf_t, jwt_claims),
-      NULL},
+    NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE2,  
+    ngx_conf_set_auth_jwt_claim,
+    NGX_HTTP_LOC_CONF_OFFSET,  
+    offsetof(ngx_http_auth_jwt_loc_conf_t, jwt_claims),
+    NULL },
+
   ngx_null_command
 };
 
@@ -138,8 +138,6 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 
   conf = ngx_http_get_module_loc_conf(r, ngx_http_auth_jwt_module);
 
-  
-  
   // Pass through if "auth_jwt" is "off"
   if (conf->jwt_flag == NGX_HTTP_AUTH_JWT_OFF)
   {
@@ -189,23 +187,26 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
   time_t exp = (time_t)jwt_get_grant_int(jwt, "exp");
   if (exp != -1 && exp < time(NULL))
   {
-    ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: the jwt has expired [exp=%ld]", (long)exp);
+    ngx_log_error(NGX_LOG_INFO, r->connection->log, 0, "JWT: the jwt has expired [exp=%ld]", (long)exp);
     return NGX_HTTP_UNAUTHORIZED;
   }
 
-  //Grant all claims
-  if(conf->jwt_claims){
+  // Grant all claims
+  if (conf->jwt_claims)
+  {
     ngx_http_auth_jwt_claim_conf_t* claims_data = conf->jwt_claims->elts;
     for(int i = 0; i < (int)conf->jwt_claims->nelts; i++){
       const char* claim_name = (char*)claims_data[i].key.data;
       const char* claim = jwt_get_grant(jwt, claim_name);
-      if(!claim){
+      if (!claim)
+      {
         ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: claim %s not found.", claims_data[i].key.data);
         return NGX_HTTP_UNAUTHORIZED;
       }
 
       unsigned char* claim_value;
-      if(claims_data[i].var_index > 0){
+      if (claims_data[i].var_index > 0)
+      {
         ngx_http_variable_value_t* value = ngx_http_get_indexed_variable(r, claims_data[i].var_index);
 
         if (value == NULL || value->not_found || value->len == 0)
@@ -216,9 +217,12 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
         claim_value = value->data;
       }
       else
+      {
         claim_value = claims_data[i].value.data;
+      }
 
-      if(ngx_strncmp(claim,claim_value,(int)strlen(claim)) != 0){
+      if (ngx_strncmp(claim,claim_value,(int)strlen(claim)) != 0)
+      {
         ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: the value for claim %s is not currect. (value is %s)", claims_data[i].key.data, claim_value);
         return NGX_HTTP_UNAUTHORIZED;
       }
@@ -258,12 +262,13 @@ static void * ngx_http_auth_jwt_create_conf(ngx_conf_t *cf)
     ngx_conf_log_error(NGX_LOG_ERR, cf, 0, "JWT: conf==NULL");
     return NULL;
   }
+
   // Initialize variables
   ngx_str_null(&conf->jwt_key);
   conf->jwt_flag = NGX_CONF_UNSET;
   conf->jwt_var_index = NGX_CONF_UNSET;
   conf->jwt_algorithm = NGX_CONF_UNSET_UINT;
-  
+
   return conf;
 }
 
@@ -495,7 +500,7 @@ static char * ngx_conf_set_auth_jwt(ngx_conf_t *cf, ngx_command_t *cmd, void *co
     }
   }
 
-  return NGX_CONF_OK;
+  return NGX_CONF_OK;  
 }
 
 
@@ -523,22 +528,28 @@ static char * ngx_conf_set_auth_jwt_claim(ngx_conf_t *cf, ngx_command_t *cmd, vo
 
     value = cf->args->elts;
 
-    claim_conf->key= value[1];
-    claim_conf->value= value[2];
+    claim_conf->key = value[1];
+    claim_conf->value = value[2];
     if (value[2].data[0] == '$')
     {
       ngx_str_t var_name = { .data = value[2].data + 1, .len = value[2].len - 1 };
-      if(var_name.data[0] == '$'){
+      if (var_name.data[0] == '$')
+      {
         claim_conf->value = var_name;
         claim_conf->var_index = -1;
       }
       else
+      {
         claim_conf->var_index = ngx_http_get_variable_index(cf,&var_name);
+      }
     }
     else
+    {
       claim_conf->var_index = -1;
+    }
 
-    if (cmd->post) {
+    if (cmd->post)
+    {
         post = cmd->post;
         return post->post_handler(cf, post, claim_conf);
     }

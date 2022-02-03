@@ -44,7 +44,7 @@ server {
     }
 
     location /secured-by-claim-variable/ {
-        auth_jwt_claim claim_name $Variable;
+        auth_jwt_claim claim_name $variable;
         auth_jwt on;
     }
 
