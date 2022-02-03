@@ -16,7 +16,7 @@ typedef struct {
 typedef struct {
   ngx_str_t key;              // Claim Name
   ngx_str_t value;            // Claim Value
-  ngx_int_t var_index;        // If claim value was variable var_index cotains variable index. if variable index not found = -1
+  ngx_int_t var_index;        // If claim value was variable var_index cotains variable index. if variable index not found = NGX_CONF_UNSET
 } ngx_http_auth_jwt_claim_conf_t;
 
 #define NGX_HTTP_AUTH_JWT_OFF        0
@@ -268,7 +268,7 @@ static void * ngx_http_auth_jwt_create_conf(ngx_conf_t *cf)
   conf->jwt_flag = NGX_CONF_UNSET;
   conf->jwt_var_index = NGX_CONF_UNSET;
   conf->jwt_algorithm = NGX_CONF_UNSET_UINT;
-
+  conf->jwt_claims = NGX_CONF_UNSET_PTR;
   return conf;
 }
 
@@ -282,7 +282,7 @@ static char * ngx_http_auth_jwt_merge_conf(ngx_conf_t *cf, void *parent, void *c
   ngx_conf_merge_value(conf->jwt_var_index, prev->jwt_var_index, NGX_CONF_UNSET);
   ngx_conf_merge_value(conf->jwt_flag, prev->jwt_flag, NGX_HTTP_AUTH_JWT_OFF);
   ngx_conf_merge_uint_value(conf->jwt_algorithm, prev->jwt_algorithm, JWT_ALG_ANY); 
-  conf->jwt_claims = !conf->jwt_claims ? prev->jwt_claims : conf->jwt_claims; 
+  ngx_conf_merge_ptr_value(conf->jwt_claims, prev->jwt_claims , NGX_CONF_UNSET_PTR);
   return NGX_CONF_OK;
 }
 
@@ -536,7 +536,7 @@ static char * ngx_conf_set_auth_jwt_claim(ngx_conf_t *cf, ngx_command_t *cmd, vo
       if (var_name.data[0] == '$')
       {
         claim_conf->value = var_name;
-        claim_conf->var_index = -1;
+        claim_conf->var_index = NGX_CONF_UNSET;
       }
       else
       {
@@ -545,7 +545,7 @@ static char * ngx_conf_set_auth_jwt_claim(ngx_conf_t *cf, ngx_command_t *cmd, vo
     }
     else
     {
-      claim_conf->var_index = -1;
+      claim_conf->var_index = NGX_CONF_UNSET;
     }
 
     if (cmd->post)
