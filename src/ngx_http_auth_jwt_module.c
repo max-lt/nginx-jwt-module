@@ -163,7 +163,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
   // Reject incoming token with a "none" algorithm, or, if auth_jwt_alg is set, those with a different one.
   if (alg == JWT_ALG_NONE || (conf->jwt_algorithm != JWT_ALG_ANY && conf->jwt_algorithm != alg))
   {
-    ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: invalid algorithm in jwt %d", jwt_get_alg(jwt));
+    ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: invalid algorithm in jwt %s", jwt_alg_str(jwt_get_alg(jwt)));
     return NGX_HTTP_UNAUTHORIZED;
   }
 
