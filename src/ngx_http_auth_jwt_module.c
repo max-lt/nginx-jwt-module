@@ -237,7 +237,8 @@ static int hex_to_binary(u_char* dest, u_char* src, const size_t n)
 {
   u_char *p = &dest[0];
   ngx_int_t dst;
-  for (size_t i = 0; i < n; i += 2) {
+  size_t i;
+  for (i = 0; i < n; i += 2) {
     dst = ngx_hextoi(&src[i], 2);
 
     if (dst == NGX_ERROR || dst > 255)
