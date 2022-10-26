@@ -5,10 +5,15 @@ GREEN='\033[01;32m'
 YELLOW='\033[01;33m'
 NONE='\033[00m'
 
+# 1: current, 2: local
 USE_CURRENT=0
 
-# use an already running container
-if [[ "$1" == "--current" ]]; then
+# used to run test image
+if [[ "$1" == "--local" ]]; then
+  USE_CURRENT=2
+  DOCKER_CONTAINER_NAME=0
+# build test image if no image name passed
+elif [[ "$1" == "--current" ]]; then
   USE_CURRENT=1
   DOCKER_CONTAINER_NAME=${2:-0}
   if [[ "$DOCKER_CONTAINER_NAME" == "0" ]]; then
@@ -81,7 +86,9 @@ test_for_tab () {
   fi
 }
 
-test_for_tab
+if [[ "$USE_CURRENT" != "2" ]]; then
+  test_for_tab
+fi
 
 test_jwt () {
   ((TEST_TOTAL_COUNT++))
@@ -174,24 +181,23 @@ test_jwt "Secure test with valid jwt cookie, and unused cookies" "/secure-cookie
 
 if [[ "$DOCKER_CONTAINER_NAME" == "0" ]]; then
   echo -e "${YELLOW}Warning: container identifier not set -> skipping configuration tests${NONE}"
-  exit 1
+else
+  test_conf 'invalid-nginx' '"auth_jwt_key" directive is duplicate in /etc/nginx/invalid-nginx.conf:18'
+
+  test_conf 'invalid-arg-1' 'invalid number of arguments in "auth_jwt" directive in /etc/nginx/invalid-arg-1.conf:6'
+
+  test_conf 'invalid-arg-2' 'invalid number of arguments in "auth_jwt_key" directive in /etc/nginx/invalid-arg-2.conf:5'
+
+  test_conf 'invalid-arg-3' 'Invalid key in /etc/nginx/invalid-arg-3.conf:5'
+
+  test_conf 'invalid-arg-4' 'No such file or directory (2: No such file or directory) in /etc/nginx/invalid-arg-4.conf:5'
+
+  test_conf 'invalid-arg-5' 'No such file or directory (2: No such file or directory) in /etc/nginx/invalid-arg-5.conf:5'
+
+  test_conf 'invalid-key-1' 'Failed to turn hex key into binary in /etc/nginx/invalid-key-1.conf:5'
+
+  test_conf 'invalid-key-2' 'Failed to turn base64 key into binary in /etc/nginx/invalid-key-2.conf:5'
 fi
-
-test_conf 'invalid-nginx' '"auth_jwt_key" directive is duplicate in /etc/nginx/invalid-nginx.conf:18'
-
-test_conf 'invalid-arg-1' 'invalid number of arguments in "auth_jwt" directive in /etc/nginx/invalid-arg-1.conf:6'
-
-test_conf 'invalid-arg-2' 'invalid number of arguments in "auth_jwt_key" directive in /etc/nginx/invalid-arg-2.conf:5'
-
-test_conf 'invalid-arg-3' 'Invalid key in /etc/nginx/invalid-arg-3.conf:5'
-
-test_conf 'invalid-arg-4' 'No such file or directory (2: No such file or directory) in /etc/nginx/invalid-arg-4.conf:5'
-
-test_conf 'invalid-arg-5' 'No such file or directory (2: No such file or directory) in /etc/nginx/invalid-arg-5.conf:5'
-
-test_conf 'invalid-key-1' 'Failed to turn hex key into binary in /etc/nginx/invalid-key-1.conf:5'
-
-test_conf 'invalid-key-2' 'Failed to turn base64 key into binary in /etc/nginx/invalid-key-2.conf:5'
 
 if [[ "$USE_CURRENT" == "0" ]]; then
   echo stopping container $DOCKER_CONTAINER_NAME
@@ -199,7 +205,7 @@ if [[ "$USE_CURRENT" == "0" ]]; then
 fi
 
 if [[ "$TEST_FAIL_COUNT" != "0" ]]; then
-  echo -e "${RED}Test suite failed${NONE}";
+  echo -e "${RED}Test suite failed $TEST_FAIL_COUNT / $TEST_TOTAL_COUNT ${NONE}";
   exit 1
 else
   echo -e "${GREEN}Tests passed successfully${NONE}";

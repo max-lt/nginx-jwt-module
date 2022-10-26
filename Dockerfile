@@ -51,7 +51,7 @@ RUN cd /usr/src/nginx-${NGINX_VERSION} \
   && ./configure --with-compat --add-dynamic-module=$JWT_MODULE_PATH \
   && make modules
 
-FROM base
+FROM base as jwt-nginx
 
 ARG LIBJWT=libjwt.so.1.7.0
 

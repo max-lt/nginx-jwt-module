@@ -1,0 +1,13 @@
+# Image used by Github workflow to run tests
+# Base image build will be prepended
+
+FROM jwt-nginx
+
+COPY test-image/nginx /etc/nginx
+COPY test-image /test-image
+COPY ./test.sh /test.sh
+
+RUN apk add bash
+RUN apk add openssl
+
+RUN nginx &> /dev/null; /test.sh --local

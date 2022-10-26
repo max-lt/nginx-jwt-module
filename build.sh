@@ -3,7 +3,7 @@
 RED='\033[01;31m'
 NONE='\033[00m'
 
-# example usage: ./build [--compress]
+# example usage: ./build [--compress] [--no-cache]
 
 # build main image
 DOCKER_IMAGE_NAME=jwt-nginx
