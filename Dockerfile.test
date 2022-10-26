@@ -3,11 +3,15 @@
 
 FROM jwt-nginx
 
-COPY test-image/nginx /etc/nginx
+RUN apk add bash make openssl
+
 COPY test-image /test-image
 COPY ./test.sh /test.sh
+COPY ./Makefile /Makefile
 
-RUN apk add bash
-RUN apk add openssl
+RUN cp -r /test-image/nginx/* /etc/nginx/
+
+RUN make clear
+RUN make test/keys
 
 RUN nginx &> /dev/null; /test.sh --local

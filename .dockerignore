@@ -6,3 +6,4 @@
 !config
 !src
 !test.sh
+!Makefile
