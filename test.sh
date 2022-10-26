@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Exit on error
+set -e
+
 RED='\033[01;31m'
 GREEN='\033[01;32m'
 YELLOW='\033[01;33m'
@@ -66,6 +69,9 @@ make_jwt() {
   echo -n "$header.$payload.$sig"
   return 0
 }
+
+# Disable exit on error
+set +e
 
 VALID_RS256=`make_jwt RS256 rsa-private.pem`
 VALID_RS512=`make_jwt RS512 rsa-private.pem`

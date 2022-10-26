@@ -13,9 +13,9 @@ Inspired by [TeslaGov](https://github.com/TeslaGov/ngx-http-auth-jwt-module), [c
  - Docker image based on the [official nginx Dockerfile](https://github.com/nginxinc/docker-nginx) (alpine).
  - Light image (~16MB).
 
-## Module:
+### Module:
 
-### Example Configuration:
+#### Example Configuration:
 ```nginx
 # nginx.conf
 load_module /usr/lib/nginx/modules/ngx_http_auth_jwt_module.so;
@@ -75,19 +75,20 @@ The `file` option requires the *value* to be a valid file path (pointing to a PE
 
 Specifies which algorithm the server expects to receive in the JWT.
 
-## Image
+### Image:
+Image is generated with Github Actions (see [nginx-jwt-module:latest][github-container-url])
+
 ```
 docker pull ghcr.io/max-lt/nginx-jwt-module:latest
 ```
 
-See Github container: [nginx-jwt-module:latest][github-container-url]
-
-### Simply create your image from Github's generated one
+#### Simply create your image from Github's generated one
 ```dockerfile
 FROM ghcr.io/max-lt/nginx-jwt-module:latest
 
 # Copy you nginx conf
 # Don't forget to include this module in your configuration
+# load_module /usr/lib/nginx/modules/ngx_http_auth_jwt_module.so;
 COPY my-nginx-conf /etc/nginx
 
 EXPOSE 8000
@@ -101,31 +102,12 @@ CMD ["nginx", "-g", "daemon off;"]
 This module is built inside a docker container, from the [nginx](https://hub.docker.com/_/nginx/)-alpine image.
 
 ```bash
-./build.sh # Will create a "jwt-nginx" (Dockerfile)
+docker build -f Dockerfile -t jwt-nginx . # Will create a "jwt-nginx" image
 ```
 
 ### Test:
+
 #### Default usage:
 ```bash
-./test.sh # Will create a "jwt-nginx-test" image (from test-image/Dockerfile) based on the "jwt-nginx" one.
-```
-#### Set image name:
-```bash
-./test.sh your-image-to-test
-```
-example:
-```bash
-./test.sh jwt-nginx-s1 # tests the development image
-```
-#### Use current container:
-```bash
-./test.sh --current my-container
-```
-example:
-```bash
-# In a first terminal:
-docker run --rm --name my-test-container -p 8000:8000 jwt-nginx-test
-
-# In a second one:
-./test.sh --current my-test-container
+make test # Will build a test image & run test suite
 ```
