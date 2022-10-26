@@ -30,5 +30,8 @@ test/local:
 test: test/keys
 	@bash test.sh
 
+build:
+	@docker build -f Dockerfile -t jwt-nginx .
+
 clear:
 	@rm -r $(keys_path)

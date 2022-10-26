@@ -102,7 +102,9 @@ CMD ["nginx", "-g", "daemon off;"]
 This module is built inside a docker container, from the [nginx](https://hub.docker.com/_/nginx/)-alpine image.
 
 ```bash
-docker build -f Dockerfile -t jwt-nginx . # Will create a "jwt-nginx" image
+make build # Will create a "jwt-nginx" image
+# or
+docker build -f Dockerfile -t jwt-nginx .
 ```
 
 ### Test:
