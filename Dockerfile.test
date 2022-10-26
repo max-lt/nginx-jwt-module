@@ -1,5 +1,5 @@
 # Image used by Github workflow to run tests
-# Base image build will be prepended by Dockerfile
+# Base image build will be prepended by the content of Dockerfile
 
 FROM jwt-nginx
 
