@@ -11,7 +11,6 @@ COPY ./Makefile /Makefile
 
 RUN cp -r /test-image/nginx/* /etc/nginx/
 
-RUN make clear
 RUN make test/keys
 
 RUN nginx &> /dev/null; /test.sh --local
