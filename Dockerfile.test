@@ -9,8 +9,8 @@ COPY test-image /test-image
 COPY ./test.sh /test.sh
 COPY ./Makefile /Makefile
 
-RUN cp -r /test-image/nginx/* /etc/nginx/
-
 RUN make test/keys
+
+RUN cp -r /test-image/nginx/* /etc/nginx/
 
 RUN nginx &> /dev/null; /test.sh --local
