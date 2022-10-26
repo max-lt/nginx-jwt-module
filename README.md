@@ -1,10 +1,11 @@
 [github-license-url]: /blob/master/LICENSE
-[docker-url]: https://hub.docker.com/r/maxxt/nginx-jwt-module/
+[action-docker-url]: https://github.com/max-lt/nginx-jwt-module/actions/workflows/docker.yml
+[github-container-url]: https://github.com/max-lt/nginx-jwt-module/pkgs/container/nginx-jwt-module
 
 # Nginx jwt auth module
-[![Build Status](https://img.shields.io/github/license/maxx-t/nginx-jwt-module.svg)][github-license-url]
-[![Build Status](https://img.shields.io/docker/build/maxxt/nginx-jwt-module.svg)][docker-url]
-[![Docker pulls](https://img.shields.io/docker/pulls/maxxt/nginx-jwt-module.svg)][docker-url]
+[![License](https://img.shields.io/github/license/maxx-t/nginx-jwt-module.svg)][github-license-url]
+[![Build Status](https://github.com/max-lt/nginx-jwt-module/actions/workflows/docker.yml/badge.svg)][action-docker-url]
+[![Build Status](https://ghcr-badge.deta.dev/max-lt/nginx-jwt-module/size)][action-docker-url]
 
 This is an NGINX module to check for a valid JWT.
 
@@ -16,6 +17,12 @@ Inspired by [TeslaGov](https://github.com/TeslaGov/ngx-http-auth-jwt-module), [c
 
 ### Example Configuration:
 ```nginx
+# nginx.conf
+load_module /usr/lib/nginx/modules/ngx_http_auth_jwt_module.so;
+```
+
+```nginx
+# server.conf
 server {
     auth_jwt_key "0123456789abcdef" hex; # Your key as hex string
     auth_jwt     off;
@@ -67,6 +74,28 @@ The `file` option requires the *value* to be a valid file path (pointing to a PE
     Context: http, server, location
 
 Specifies which algorithm the server expects to receive in the JWT.
+
+## Image
+```
+docker pull ghcr.io/max-lt/nginx-jwt-module:latest
+```
+
+See Github container: [nginx-jwt-module:latest][github-container-url]
+
+### Simply create your image from Github's generated one
+```dockerfile
+FROM ghcr.io/max-lt/nginx-jwt-module:latest
+
+# Copy you nginx conf
+# Don't forget to include this module in your configuration
+COPY my-nginx-conf /etc/nginx
+
+EXPOSE 8000
+
+STOPSIGNAL SIGTERM
+
+CMD ["nginx", "-g", "daemon off;"]
+```
 
 ### Build:
 This module is built inside a docker container, from the [nginx](https://hub.docker.com/_/nginx/)-alpine image.

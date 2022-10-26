@@ -46,7 +46,6 @@ else
   MACHINE_IP=`docker-machine ip 2> /dev/null`
 fi
 
-
 b64enc() { openssl enc -base64 -A | tr '+/' '-_' | tr -d '='; }
 hs_sign() { openssl dgst -binary -sha"${1}" -hmac "$2"; }
 rs_sign() { openssl dgst -binary -sha"${1}" -sign <(printf '%s\n' "$2"); }
