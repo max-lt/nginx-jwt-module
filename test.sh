@@ -54,18 +54,23 @@ rs_sign() { openssl dgst -binary -sha"${1}" -sign <(printf '%s\n' "$2"); }
 make_jwt() {
   local alg=$1
   local key=$2
+  local alg_size=${alg#RS} # alg without RS prefix
   local header=`echo -n "{\"alg\":\"$alg\"}" | b64enc`
   local payload=`echo -n '{}' | b64enc`
   local secret=`cat ./test-image/nginx/keys/$key`
-  local sig=`echo -n "$header.$payload" | rs_sign '256' "$secret" | b64enc`
+  local sig=`echo -n "$header.$payload" | rs_sign "$alg_size" "$secret" | b64enc`
   echo -n "$header.$payload.$sig"
   return 0
 }
 
 VALID_RS256=`make_jwt RS256 rsa-private.pem`
+VALID_RS512=`make_jwt RS512 rsa-private.pem`
 BAD_RS256=`make_jwt RS256 rsa-wrong-private.pem`
-VALID_JWT="eyJhbGciOiJIUzI1NiJ9.e30.-gVyhFDs5NeX0yvaAoTPVgrDfrg_qk7dF0sNj_-Bu-c"
-BAD_SIG="eyJhbGciOiJIUzI1NiJ9.e30.nmwH1lIcnA-g8CEV_fWIlAV7h98_Wwy1gIqIabAdrIs"
+VALID_JWT="eyJhbGciOiJIUzI1NiJ9.e30.-gVyhFDs5NeX0yvaAoTPVgrDfrg_qk7dF0sNj_-Bu-c" # secret = 'inherited-secret' (utf8)
+BAD_SIG="eyJhbGciOiJIUzI1NiJ9.e30.nmwH1lIcnA-g8CEV_fWIlAV7h98_Wwy1gIqIabAdrIs" # secret = 'invalid' (utf8)
+
+TEST_TOTAL_COUNT=0
+TEST_FAIL_COUNT=0
 
 test_for_tab () {
   local test=`grep $'\t' src/ngx_http_auth_jwt_module.c | wc -l`
@@ -74,13 +79,14 @@ test_for_tab () {
     echo -e "${GREEN}${name}: passed${NONE}";
   else
     echo -e "${RED}${name}: failed (found ${test} tabs instead of 0)${NONE}";
-    exit 1
   fi
 }
 
 test_for_tab
 
 test_jwt () {
+  ((TEST_TOTAL_COUNT++))
+
   local name=$1
   local path=$2
   local expect=$3
@@ -93,6 +99,7 @@ test_jwt () {
     echo -e "${GREEN}${name}: passed (${test})${NONE}";
   else
     echo -e "${RED}${name}: failed (${test} instead of ${expect})${NONE}";
+    ((TEST_FAIL_COUNT++))
   fi
 }
 
@@ -143,12 +150,20 @@ test_jwt "Secure test with invalid jwt auth header" "/secure-auth-header/" "401"
 test_jwt "Secure test with invalid jwt auth header" "/secure-auth-header/" "401" "--header \"Authorization: BearAr a\""
 
 test_jwt "Secure test with valid jwt cookie - RS256" "/rsa-file-encoded/" "200" "--header \"Authorization: Bearer ${VALID_RS256}\""
+test_jwt "Secure test with valid jwt cookie - RS512" "/rsa-file-encoded/" "200" "--header \"Authorization: Bearer ${VALID_RS512}\""
+test_jwt "Secure test with valid jwt cookie - RS256" "/rsa-file-encoded-alg-256/" "200" "--header \"Authorization: Bearer ${VALID_RS256}\""
+test_jwt "Secure test with valid jwt cookie but bad alg - RS512" "/rsa-file-encoded-alg-256/" "401" "--header \"Authorization: Bearer ${VALID_RS512}\""
+test_jwt "Secure test with valid jwt cookie but bad alg - RS256" "/rsa-file-encoded-alg-512/" "401" "--header \"Authorization: Bearer ${VALID_RS256}\""
+test_jwt "Secure test with valid jwt cookie - RS512" "/rsa-file-encoded-alg-512/" "200" "--header \"Authorization: Bearer ${VALID_RS512}\""
 
 test_jwt "Secure test with invalid jwt cookie - RS256" "/rsa-file-encoded/" "401" "--header \"Authorization: Bearer ${BAD_RS256}\""
 
 test_jwt "Secure test with valid jwt on restricted algoritm - RS256" "/restricted-alg/" "200" "--header \"Authorization: Bearer ${VALID_RS256}\""
 
-test_jwt "Secure test with valid jwt on non-restricted algoritm: expect RS256" "/any-alg/" "200" "--header \"Authorization: Bearer ${VALID_RS256}\""
+# Test any alg
+test_jwt "Secure test with valid jwt on non-restricted algoritm - RS256" "/any-alg/" "200" "--header \"Authorization: Bearer ${VALID_RS256}\""
+test_jwt "Secure test with valid jwt on non-restricted algoritm - RS512" "/any-alg/" "200" "--header \"Authorization: Bearer ${VALID_RS512}\""
+test_jwt "Secure test with invalid jwt on non-restricted algoritm" "/any-alg/" "401" "--header \"Authorization: Bearer ${BAD_RS256}\""
 
 test_jwt "Secure test with valid jwt but invalid algoritm on restricted algoritm: expect RS256" "/restricted-alg/" "401" "--header \"Authorization: Bearer ${VALID_JWT}\""
 
@@ -182,4 +197,11 @@ test_conf 'invalid-key-2' 'Failed to turn base64 key into binary in /etc/nginx/i
 if [[ "$USE_CURRENT" == "0" ]]; then
   echo stopping container $DOCKER_CONTAINER_NAME
   docker stop ${DOCKER_CONTAINER_NAME} > /dev/null
+fi
+
+if [[ "$TEST_FAIL_COUNT" != "0" ]]; then
+  echo -e "${RED}Test suite failed${NONE}";
+  exit 1
+else
+  echo -e "${GREEN}Tests passed successfully${NONE}";
 fi
