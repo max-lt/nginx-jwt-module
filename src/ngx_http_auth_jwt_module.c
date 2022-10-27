@@ -19,7 +19,7 @@ typedef struct {
 typedef struct {
   ngx_str_t key;              // Claim Name
   ngx_str_t value;            // Claim Value
-  ngx_int_t var_index;        // If claim value was variable var_index cotains variable index. if variable index not found = NGX_CONF_UNSET
+  ngx_int_t var_index;        // If claim value was variable var_index contains variable index. if variable index not found = NGX_CONF_UNSET
 } ngx_http_auth_jwt_claim_conf_t;
 
 #define NGX_HTTP_AUTH_JWT_OFF        0
@@ -105,7 +105,7 @@ static ngx_command_t ngx_http_auth_jwt_commands[] = {
   { ngx_string("auth_jwt_claim"),  
     NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_TAKE2,  
     ngx_conf_set_auth_jwt_claim,
-    NGX_HTTP_LOC_CONF_OFFSET,  
+    NGX_HTTP_LOC_CONF_OFFSET,
     offsetof(ngx_http_auth_jwt_loc_conf_t, jwt_claims),
     NULL },
 
@@ -252,7 +252,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
   }
 
   // Grant all claims
-  if (conf->jwt_claims)
+  if (conf->jwt_claims != NGX_CONF_UNSET_PTR)
   {
     ngx_http_auth_jwt_claim_conf_t* claims_data = conf->jwt_claims->elts;
     for(int i = 0; i < (int)conf->jwt_claims->nelts; i++){
@@ -286,9 +286,9 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
         ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: the value for claim %s is not currect. (value is %s)", claims_data[i].key.data, claim_value);
         return NGX_HTTP_UNAUTHORIZED;
       }
-    } 
-  } 
-  
+    }
+  }
+
   return NGX_OK;
 }
 
@@ -347,7 +347,6 @@ static char * ngx_http_auth_jwt_merge_conf(ngx_conf_t *cf, void *parent, void *c
   ngx_conf_merge_uint_value(conf->jwt_algorithm, prev->jwt_algorithm, JWT_ALG_ANY);
   ngx_conf_merge_uint_value(conf->jwt_require_error, prev->jwt_require_error, 401);
   ngx_conf_merge_ptr_value(conf->jwt_require, prev->jwt_require, NGX_CONF_UNSET_PTR);
-  ngx_conf_merge_uint_value(conf->jwt_algorithm, prev->jwt_algorithm, JWT_ALG_ANY); 
   ngx_conf_merge_ptr_value(conf->jwt_claims, prev->jwt_claims , NGX_CONF_UNSET_PTR);
 
   // If auth_jwt is active, we must have a key
@@ -647,7 +646,7 @@ static char * ngx_conf_set_auth_jwt(ngx_conf_t *cf, ngx_command_t *cmd, void *co
     }
   }
 
-  return NGX_CONF_OK;  
+  return NGX_CONF_OK;
 }
 
 
