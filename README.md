@@ -1,10 +1,11 @@
 [github-license-url]: /blob/master/LICENSE
-[docker-url]: https://hub.docker.com/r/maxxt/nginx-jwt-module/
+[action-docker-url]: https://github.com/max-lt/nginx-jwt-module/actions/workflows/docker.yml
+[github-container-url]: https://github.com/max-lt/nginx-jwt-module/pkgs/container/nginx-jwt-module
 
 # Nginx jwt auth module
-[![Build Status](https://img.shields.io/github/license/maxx-t/nginx-jwt-module.svg)][github-license-url]
-[![Build Status](https://img.shields.io/docker/build/maxxt/nginx-jwt-module.svg)][docker-url]
-[![Docker pulls](https://img.shields.io/docker/pulls/maxxt/nginx-jwt-module.svg)][docker-url]
+[![License](https://img.shields.io/github/license/maxx-t/nginx-jwt-module.svg)][github-license-url]
+[![Build Status](https://github.com/max-lt/nginx-jwt-module/actions/workflows/docker.yml/badge.svg)][action-docker-url]
+[![Build Status](https://ghcr-badge.deta.dev/max-lt/nginx-jwt-module/size)][action-docker-url]
 
 This is an NGINX module to check for a valid JWT.
 
@@ -12,10 +13,16 @@ Inspired by [TeslaGov](https://github.com/TeslaGov/ngx-http-auth-jwt-module), [c
  - Docker image based on the [official nginx Dockerfile](https://github.com/nginxinc/docker-nginx) (alpine).
  - Light image (~16MB).
 
-## Module:
+### Module:
 
-### Example Configuration:
+#### Example Configuration:
 ```nginx
+# nginx.conf
+load_module /usr/lib/nginx/modules/ngx_http_auth_jwt_module.so;
+```
+
+```nginx
+# server.conf
 server {
     auth_jwt_key "0123456789abcdef" hex; # Your key as hex string
     auth_jwt     off;
@@ -85,35 +92,41 @@ Specifies which algorithm the server expects to receive in the JWT.
 
 Specifies Jwt must have this claim. This config can be used multiple times.
 
+### Image:
+Image is generated with Github Actions (see [nginx-jwt-module:latest][github-container-url])
+
+```
+docker pull ghcr.io/max-lt/nginx-jwt-module:latest
+```
+
+#### Simply create your image from Github's generated one
+```dockerfile
+FROM ghcr.io/max-lt/nginx-jwt-module:latest
+
+# Copy you nginx conf
+# Don't forget to include this module in your configuration
+# load_module /usr/lib/nginx/modules/ngx_http_auth_jwt_module.so;
+COPY my-nginx-conf /etc/nginx
+
+EXPOSE 8000
+
+STOPSIGNAL SIGTERM
+
+CMD ["nginx", "-g", "daemon off;"]
+```
+
 ### Build:
 This module is built inside a docker container, from the [nginx](https://hub.docker.com/_/nginx/)-alpine image.
 
 ```bash
-./build.sh # Will create a "jwt-nginx" (Dockerfile)
+make build # Will create a "jwt-nginx" image
+# or
+docker build -f Dockerfile -t jwt-nginx .
 ```
 
 ### Test:
+
 #### Default usage:
 ```bash
-./test.sh # Will create a "jwt-nginx-test" image (from test-image/Dockerfile) based on the "jwt-nginx" one.
-```
-#### Set image name:
-```bash
-./test.sh your-image-to-test
-```
-example:
-```bash
-./test.sh jwt-nginx-s1 # tests the development image
-```
-#### Use current container:
-```bash
-./test.sh --current my-container
-```
-example:
-```bash
-# In a first terminal:
-docker run --rm --name my-test-container -p 8000:8000 jwt-nginx-test
-
-# In a second one:
-./test.sh --current my-test-container
+make test # Will build a test image & run test suite
 ```

@@ -2,5 +2,8 @@
 **
 
 # Allow files and directories
+!test-image
 !config
 !src
+!test.sh
+!Makefile

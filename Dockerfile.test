@@ -1,0 +1,16 @@
+# Image used by Github workflow to run tests
+# Base image build will be prepended by the content of Dockerfile
+
+FROM jwt-nginx
+
+RUN apk add bash make openssl
+
+COPY test-image /test-image
+COPY ./test.sh /test.sh
+COPY ./Makefile /Makefile
+
+RUN make test/keys
+
+RUN cp -r /test-image/nginx/* /etc/nginx/
+
+RUN nginx &> /dev/null; /test.sh --local

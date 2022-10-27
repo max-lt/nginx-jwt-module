@@ -163,7 +163,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
     ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: failed to parse jwt");
     return NGX_HTTP_UNAUTHORIZED;
   }
-  // jwt_decode succeded and allocated an jwt object.
+  // jwt_decode succeeded and allocated an jwt object.
   // We register jwt_free as a function to be called on pool cleanup.
   ngx_pool_cleanup_t *cln = ngx_pool_cleanup_add(r->pool, 0);
   if (cln == NULL)
@@ -291,7 +291,8 @@ static int hex_to_binary(u_char* dest, u_char* src, const size_t n)
 {
   u_char *p = &dest[0];
   ngx_int_t dst;
-  for (size_t i = 0; i < n; i += 2) {
+  size_t i;
+  for (i = 0; i < n; i += 2) {
     dst = ngx_hextoi(&src[i], 2);
 
     if (dst == NGX_ERROR || dst > 255)
