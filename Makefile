@@ -26,8 +26,13 @@ test/image:
 test/local:
 	@bash test.sh --local
 
+# Run tests in container
+test/docker:
+	@cat Dockerfile Dockerfile.test > Dockerfile.merged
+	@docker build -f Dockerfile.merged .
+
 # Build test image & run test suite
-test: test/keys
+test: test/keys build
 	@bash test.sh
 
 build:

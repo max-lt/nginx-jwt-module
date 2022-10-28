@@ -232,6 +232,7 @@ static char * ngx_http_auth_jwt_merge_conf(ngx_conf_t *cf, void *parent, void *c
   return NGX_CONF_OK;
 }
 
+
 // Convert an hexadecimal string to a binary string
 static int hex_to_binary(u_char* dest, u_char* src, const size_t n)
 {
@@ -290,11 +291,10 @@ static char * auth_jwt_key_from_file(ngx_conf_t *cf, const char *path, ngx_str_t
 // Parse auth_jwt_key directive
 static char * ngx_conf_set_auth_jwt_key(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
-  ngx_str_t *key = conf;
-  ngx_str_t *value;
+  ngx_http_auth_jwt_loc_conf_t *ajcf = conf;
+  ngx_str_t *key = &ajcf->jwt_key;
+  ngx_str_t *value = (ngx_str_t *) cf->args->elts;
   ngx_uint_t encoding;
-
-  value = cf->args->elts;
 
   // If jwt_key.data not null
   if (key->data != NULL)

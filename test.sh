@@ -115,93 +115,127 @@ test_jwt () {
   fi
 }
 
-test_conf () {
+test_conf_docker () {
+  ((TEST_TOTAL_COUNT++))
   local target=$DOCKER_CONTAINER_NAME
   local config=$1
-  local expect="$2"
+  local expect=$2
 
   match=`docker exec -it $target nginx -t -c "/etc/nginx/${config}.conf" | grep "$expect" | wc -l`
 
   if [ "$match" -ne "0" ];then
     echo -e "${GREEN}Config test ${config}: passed (${match})${NONE}";
   else
+    ((TEST_FAIL_COUNT++))
     echo -e "${RED}Config test ${config}: failed (no match for '${expect}')${NONE}";
+    docker exec -it $target nginx -t -c "/etc/nginx/${config}.conf"
   fi
 }
 
-test_jwt "Insecure test" "/" "200"
+test_conf_local () {
+  ((TEST_TOTAL_COUNT++))
+  local config=$1
+  local expect="$2"
 
-test_jwt "Secure test without jwt" "/secure-cookie/" "401"
+  match=`nginx -t -c "/etc/nginx/${config}.conf" 2>&1 | grep "$expect" | wc -l`
 
-test_jwt "Secure test without jwt" "/secure-auth-header/" "401"
+  if [ "$match" -ne "0" ];then
+    echo -e "${GREEN}Config test ${config}: passed (${match})${NONE}";
+  else
+    ((TEST_FAIL_COUNT++))
+    echo -e "${RED}Config test ${config}: failed (no match for '${expect}')${NONE}";
+    nginx -t -c "/etc/nginx/${config}.conf"
+  fi
+}
 
-test_jwt "Secure test with valid jwt cookie" "/secure-cookie/" "200" "--cookie \"rampartjwt=${VALID_JWT}\""
+test_conf () {
+  if [[ "$USE_CURRENT" == "2" ]]; then
+    test_conf_local $@
+  else
+    test_conf_docker $@
+  fi
+}
 
-test_jwt "Secure test with bad cookie name" "/secure-cookie/" "401" "--cookie \"invalid_name=${VALID_JWT}\""
 
-test_jwt "Secure test with invalid jwt cookie" "/secure-cookie/" "401" "--cookie \"rampartjwt=invalid\""
+echo "# Test jwt presence"
+test_jwt "Calling auth-disabled without jwt should return 200" "/" "200"
+test_jwt "Calling secure-cookie without jwt should return 401" "/secure-cookie/" "401"
+test_jwt "Calling secure-auth-h without jwt should return 401" "/secure-auth-header/" "401"
 
-test_jwt "Secure test with valid jwt cookie but invalid signature" "/secure-cookie/" "401" "--cookie \"rampartjwt=${BAD_SIG}\""
+echo "# Basic tests"
+test_jwt "Valid jwt in cookie on auth-disabled should return 200" "/" "200" "--cookie \"rampartjwt=${VALID_JWT}\""
+test_jwt "Valid jwt in header on auth-disabled should return 200" "/" "200" "--cookie \"Authorization: Bearer ${VALID_JWT}\""
+test_jwt "Valid jwt in cookie on secure-cookie should return 200" "/secure-cookie/" "200" "--cookie \"rampartjwt=${VALID_JWT}\""
+test_jwt "Valid jwt in header on secure-cookie should return 401" "/secure-cookie/" "401" "--header \"Authorization: Bearer ${VALID_JWT}\""
+test_jwt "Valid jwt in cookie on secure-auth-header should return 401" "/secure-auth-header/" "401" "--cookie \"rampartjwt=${VALID_JWT}\""
+test_jwt "Valid jwt in header on secure-auth-header should return 200" "/secure-auth-header/" "200" "--header \"Authorization: Bearer ${VALID_JWT}\""
 
-test_jwt "Secure test with valid jwt cookie but expecting auth header" "/secure-cookie/" "401" "--header \"Authorization: Bearer ${VALID_JWT}\""
+echo "# Test exp claim with expired jwt (2022-01-01)"
+JWT='eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2NDA5OTUyMDB9.xRKe3S3RDg9l2_OlVhDnbd5taYo0pl9D22AABCWrHYk'
+test_jwt "Expired jwt in cookie on auth-disabled should return 200" "/" "200" "--cookie \"rampartjwt=${JWT}\""
+test_jwt "Expired jwt in header on auth-disabled should return 200" "/" "200"  "--header \"Authorization: Bearer ${JWT}\""
+test_jwt "Expired jwt on secure-cookie should return 401" "/secure-cookie/"      "401" "--cookie \"rampartjwt=${JWT}\""
+test_jwt "Expired jwt on secure-auth-h should return 401" "/secure-auth-header/" "401" "--header \"Authorization: Bearer ${JWT}\""
 
-test_jwt "Secure test with valid jwt auth header but expecting cookie" "/secure-cookie/" "401" "--header \"Authorization: Bearer ${VALID_JWT}\""
+echo "# Test exp claim with non-expired jwt (2032-01-01)"
+JWT='eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjE5NTY1MjgwMDB9.3rTJLB2KJxDoTImIsyMC4Bo5R1IY-d9dhr75llFiw_8'
+test_jwt "Calling secure-cookie with non-expired jwt should return 200" "/secure-cookie/"      "200" "--cookie \"rampartjwt=${JWT}\""
+test_jwt "Calling secure-auth-h with non-expired jwt should return 200" "/secure-auth-header/" "200" "--header \"Authorization: Bearer ${JWT}\""
 
-test_jwt "Secure test with valid jwt auth header" "/secure-auth-header/" "200" "--header \"Authorization: Bearer ${VALID_JWT}\""
+echo "# Test cookie name"
+test_jwt "Calling secure-cookie with valid jwt in cookie but wrong cookie name should return 401" "/secure-cookie/" "401" "--cookie \"invalid_name=${VALID_JWT}\""
 
-test_jwt "Secure test with valid jwt auth header but invalid signature" "/secure-auth-header/" "401" "--header \"Authorization: Bearer ${BAD_SIG}\""
+echo "# Test payload"
+test_jwt "Calling secure-cookie with invalid payload should return 401" "/secure-cookie/" "401" "--cookie \"rampartjwt=invalid\""
+test_jwt "Calling secure-auth-h with invalid payload should return 401" "/secure-auth-header/" "401" "--header \"Authorization: invalid\""
+JWT='eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjE5NT1MjgwMDB9.3rTJLB2KJxDoTImIsyMC4Bo5R1IY-d9dhr75llFiw_8'
+test_jwt "Calling secure-cookie with invalid payload should return 401" "/secure-cookie/" "401" "--cookie \"rampartjwt=${JWT}\""
+test_jwt "Calling secure-auth-h with invalid payload should return 401" "/secure-auth-header/" "401" "--header \"Authorization: Bearer ${JWT}\""
 
-test_jwt "Secure test with invalid jwt auth header" "/secure-auth-header/" "401" "--header \"Authorization: x\""
+echo "# Test signature"
+test_jwt "Calling secure-cookie with invalid signature should return 401" "/secure-cookie/"      "401" "--cookie \"rampartjwt=${BAD_SIG}\""
+test_jwt "Calling secure-auth-h with invalid signature should return 401" "/secure-auth-header/" "401" "--header \"Authorization: Bearer ${BAD_SIG}\""
 
-test_jwt "Secure test with invalid jwt auth header" "/secure-auth-header/" "401" "--header \"Authorization: Beare\""
+echo "# Test auth header (check for overflows)"
+test_jwt "Invalid jwt in header should return 401" "/secure-auth-header/" "401" "--header \"Authorization: \\0\""
+test_jwt "Invalid jwt in header should return 401" "/secure-auth-header/" "401" "--header \"Authorization: x\""
+test_jwt "Invalid jwt in header should return 401" "/secure-auth-header/" "401" "--header \"Authorization: Beare\""
+test_jwt "Invalid jwt in header should return 401" "/secure-auth-header/" "401" "--header \"Authorization: Bearer\""
+test_jwt "Invalid jwt in header should return 401" "/secure-auth-header/" "401" "--header \"Authorization: BearerXa\""
+test_jwt "Invalid jwt in header should return 401" "/secure-auth-header/" "401" "--header \"Authorization: BearAr a\""
+test_jwt "Invalid jwt in header should return 401" "/secure-auth-header/" "401" "--header \"Authorization: BearAuthorization\""
 
-test_jwt "Secure test with invalid jwt auth header" "/secure-auth-header/" "401" "--header \"Authorization: Bearer\""
+echo "# Test RSA files as keys"
+test_jwt "Valid jwt (RS256)" "/rsa-file-encoded/" "200" "--header \"Authorization: Bearer ${VALID_RS256}\""
+test_jwt "Valid jwt (RS512)" "/rsa-file-encoded/" "200" "--header \"Authorization: Bearer ${VALID_RS512}\""
+test_jwt "Valid jwt header with expected alg (RS256) but bad signature" "/rsa-file-encoded/" "401" "--header \"Authorization: Bearer ${BAD_RS256}\""
+test_jwt "Valid jwt header with expected alg (RS256)" "/rsa-file-encoded-alg-256/" "200" "--header \"Authorization: Bearer ${VALID_RS256}\""
+test_jwt "Valid jwt header with expected alg (RS512)" "/rsa-file-encoded-alg-512/" "200" "--header \"Authorization: Bearer ${VALID_RS512}\""
+test_jwt "Valid jwt header but bad alg (RS512 instead of RS256)" "/rsa-file-encoded-alg-256/" "401" "--header \"Authorization: Bearer ${VALID_RS512}\""
+test_jwt "Valid jwt header but bad alg (RS256 instead of RS512)" "/rsa-file-encoded-alg-512/" "401" "--header \"Authorization: Bearer ${VALID_RS256}\""
 
-test_jwt "Secure test with invalid jwt auth header" "/secure-auth-header/" "401" "--header \"Authorization: BearerXa\""
+echo "# Test any alg"
+test_jwt "Calling any-alg with RS256 alg should return 200" "/any-alg/" "200" "--header \"Authorization: Bearer ${VALID_RS256}\""
+test_jwt "Calling any-alg with RS512 alg should return 200" "/any-alg/" "200" "--header \"Authorization: Bearer ${VALID_RS512}\""
+test_jwt "Calling any-alg with invalid signature should return 401" "/any-alg/" "401" "--header \"Authorization: Bearer ${BAD_SIG}\""
+test_jwt "Calling any-alg with invalid signature (RS256) should return 401" "/any-alg/" "401" "--header \"Authorization: Bearer ${BAD_RS256}\""
 
-test_jwt "Secure test with invalid jwt auth header" "/secure-auth-header/" "401" "--header \"Authorization: BearAr a\""
+echo "# Test with multiple cookies"
+test_jwt "Calling with valid jwt cookie and some cookies" "/secure-cookie/" "200" "--cookie \"rampartjwt=${VALID_JWT}; session=${VALID_JWT}\""
+test_jwt "Calling with some cookies and valid jwt cookie" "/secure-cookie/" "200" "--cookie \"rampartjwt=${VALID_JWT}; session=${VALID_JWT}\""
 
-test_jwt "Secure test with valid jwt cookie - RS256" "/rsa-file-encoded/" "200" "--header \"Authorization: Bearer ${VALID_RS256}\""
-test_jwt "Secure test with valid jwt cookie - RS512" "/rsa-file-encoded/" "200" "--header \"Authorization: Bearer ${VALID_RS512}\""
-test_jwt "Secure test with valid jwt cookie - RS256" "/rsa-file-encoded-alg-256/" "200" "--header \"Authorization: Bearer ${VALID_RS256}\""
-test_jwt "Secure test with valid jwt cookie but bad alg - RS512" "/rsa-file-encoded-alg-256/" "401" "--header \"Authorization: Bearer ${VALID_RS512}\""
-test_jwt "Secure test with valid jwt cookie but bad alg - RS256" "/rsa-file-encoded-alg-512/" "401" "--header \"Authorization: Bearer ${VALID_RS256}\""
-test_jwt "Secure test with valid jwt cookie - RS512" "/rsa-file-encoded-alg-512/" "200" "--header \"Authorization: Bearer ${VALID_RS512}\""
 
-test_jwt "Secure test with invalid jwt cookie - RS256" "/rsa-file-encoded/" "401" "--header \"Authorization: Bearer ${BAD_RS256}\""
-
-test_jwt "Secure test with valid jwt on restricted algoritm - RS256" "/restricted-alg/" "200" "--header \"Authorization: Bearer ${VALID_RS256}\""
-
-# Test any alg
-test_jwt "Secure test with valid jwt on non-restricted algoritm - RS256" "/any-alg/" "200" "--header \"Authorization: Bearer ${VALID_RS256}\""
-test_jwt "Secure test with valid jwt on non-restricted algoritm - RS512" "/any-alg/" "200" "--header \"Authorization: Bearer ${VALID_RS512}\""
-test_jwt "Secure test with invalid jwt on non-restricted algoritm" "/any-alg/" "401" "--header \"Authorization: Bearer ${BAD_RS256}\""
-
-test_jwt "Secure test with valid jwt but invalid algoritm on restricted algoritm: expect RS256" "/restricted-alg/" "401" "--header \"Authorization: Bearer ${VALID_JWT}\""
-
-test_jwt "Secure test with valid jwt on restricted algoritm: expect HS256" "/restricted-alg-2/" "200" "--header \"Authorization: Bearer ${VALID_JWT}\""
-
-test_jwt "Secure test with valid jwt but invalid algoritm on restricted algoritm: expect HS256" "/restricted-alg-2/" "401" "--header \"Authorization: Bearer ${VALID_RS256}\""
-
-test_jwt "Secure test with valid jwt cookie, and unused cookies" "/secure-cookie/" "200" "--cookie \"rampartjwt=${VALID_JWT}; session=${VALID_JWT}\""
-
-if [[ "$DOCKER_CONTAINER_NAME" == "0" ]]; then
+if [[ "$USE_CURRENT" == "1" ]] && [[ "$DOCKER_CONTAINER_NAME" == "0" ]]; then
   echo -e "${YELLOW}Warning: container identifier not set -> skipping configuration tests${NONE}"
 else
+  echo "# Test configurations"
   test_conf 'invalid-nginx' '"auth_jwt_key" directive is duplicate in /etc/nginx/invalid-nginx.conf:18'
-
   test_conf 'invalid-arg-1' 'invalid number of arguments in "auth_jwt" directive in /etc/nginx/invalid-arg-1.conf:6'
-
   test_conf 'invalid-arg-2' 'invalid number of arguments in "auth_jwt_key" directive in /etc/nginx/invalid-arg-2.conf:5'
-
   test_conf 'invalid-arg-3' 'Invalid key in /etc/nginx/invalid-arg-3.conf:5'
-
   test_conf 'invalid-arg-4' 'No such file or directory (2: No such file or directory) in /etc/nginx/invalid-arg-4.conf:5'
-
   test_conf 'invalid-arg-5' 'No such file or directory (2: No such file or directory) in /etc/nginx/invalid-arg-5.conf:5'
-
   test_conf 'invalid-key-1' 'Failed to turn hex key into binary in /etc/nginx/invalid-key-1.conf:5'
-
   test_conf 'invalid-key-2' 'Failed to turn base64 key into binary in /etc/nginx/invalid-key-2.conf:5'
 fi
 
