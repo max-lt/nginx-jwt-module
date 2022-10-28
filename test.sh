@@ -244,6 +244,33 @@ test_jwt "Test claim with valid jwt but partial claim (b/ab) should return 403" 
 JWT='eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYWRtaW4iLCJzY29wZSI6InJlc3RyaWN0ZWQifQ.Q7wrUA1Ao3Bt-lQpE3ubnYfn_Yu2FCbEENC8JiED5ZY' # { "role": "admin", "scope": "restricted" }
 test_jwt "Test claim with valid jwt and expected claim should return 201" "/auth-compound-require" "201" "--header \"Authorization: Bearer ${JWT}\""
 
+echo "# Test claims"
+test_jwt "Test claim with valid jwt in header but missing claim should return 401" "/claim-simple" "401" "--header \"Authorization: Bearer ${VALID_JWT}\""
+test_jwt "Test claim with valid jwt in header but missing claim should return 401 (inherited)" "/claim/simple" "401" "--header \"Authorization: Bearer ${VALID_JWT}\""
+JWT='eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYWRtaW4ifQ.AnK-9_1YHP4LqTSGBMbv6GnRiZ-eGOcquN2kxHukPQo'
+test_jwt "Test claim with valid jwt and expected claim should return 201" "/claim-simple" "201" "--header \"Authorization: Bearer ${JWT}\""
+test_jwt "Test claim with valid jwt and expected claim should return 202 (inherited)" "/claim/simple" "202" "--header \"Authorization: Bearer ${JWT}\""
+JWT='eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYWRtaW4iLCJ2YWx1ZSI6InRlc3QifQ.xjrnuFG-lFZMS1HXCo5PFjCX6XoDA7Pod5ZzbdBLj_g'
+test_jwt "Test claim with expected claim but invalid signature should return 401" "/claim-simple" "401" "--header \"Authorization: Bearer ${JWT}\""
+test_jwt "Test claim with expected claim but invalid signature should return 401 (inherited)" "/claim/simple" "401" "--header \"Authorization: Bearer ${JWT}\""
+
+echo "# Test compound claim"
+test_jwt "Test claim with valid jwt but partial claim should return 401" "/claim-compound" "401" "--header \"Authorization: Bearer ${JWT}\""
+test_jwt "Test claim with valid jwt but partial claim should return 401 (inherited)" "/claim/compound" "401" "--header \"Authorization: Bearer ${JWT}\""
+JWT='eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYWRtaW4iLCJ2YWx1ZSI6InRlc3QifQ.6NFXSwdWwfSkWes97lBX0M5qJVCFFXlxkuI_McvdvFQ' # { "role": "admin", "value": "test" }
+test_jwt "Test claim with valid jwt and expected claim should return 201" "/claim-compound" "201" "--header \"Authorization: Bearer ${JWT}\""
+test_jwt "Test claim with valid jwt and expected claim should return 202 (inherited)" "/claim/compound" "202" "--header \"Authorization: Bearer ${JWT}\""
+
+echo "# Test invalid claims"
+JWT='eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjo1fQ.b1eZuUXVOkMYkA5vOXVFeXDZ6ov0VywpTI4X6jCvhD4'
+test_jwt "Test claim with valid jwt but invalid claim (number instead of string) should return 401" "/claim/simple" "401" "--header \"Authorization: Bearer ${JWT}\""
+JWT='eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjpudWxsfQ.nrgJe01YwgnS2AOTGWTrohRtoGeToWQedFX-nVv4jpY'
+test_jwt "Test claim with valid jwt but invalid claim (null instead of string) should return 401" "/claim/simple" "401" "--header \"Authorization: Bearer ${JWT}\""
+JWT='eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjp0cnVlfQ.fQ8YeZGNnLuRAB2aHtC4uCoDj7OvMkbMH-9sutx9yUw'
+test_jwt "Test claim with valid jwt but invalid claim (boolean instead of string) should return 401" "/claim/simple" "401" "--header \"Authorization: Bearer ${JWT}\""
+JWT='eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjpbMSwyLDNdfQ.5lMbq_culJwR8rauZce2daf6Z3fxQutyN9SOUlH3Aic'
+test_jwt "Test claim with valid jwt but invalid claim (array instead of string) should return 401" "/claim/simple" "401" "--header \"Authorization: Bearer ${JWT}\""
+
 
 if [[ "$USE_CURRENT" == "1" ]] && [[ "$DOCKER_CONTAINER_NAME" == "0" ]]; then
   echo -e "${YELLOW}Warning: container identifier not set -> skipping configuration tests${NONE}"
@@ -264,6 +291,9 @@ else
   test_conf 'invalid-require-4' 'invalid variable name "admin=true" in /etc/nginx/invalid-require-6.conf:13'
   test_conf 'invalid-require-5' 'unknown "jwt_has_admin_role" variable'
   test_conf 'invalid-require-6' '"auth_jwt_require" directive is duplicate in /etc/nginx/invalid-require-6.conf:23'
+  test_conf 'grant-claim-1' 'grant-claim-1.conf syntax is ok' # should be ok
+  test_conf 'grant-claim-2' 'grant-claim-2.conf syntax is ok' # should be ok
+  test_conf 'grant-claim-3' 'invalid number of arguments in "auth_jwt_claim" directive in /etc/nginx/grant-claim-3.conf:15'
 fi
 
 if [[ "$USE_CURRENT" == "0" ]]; then

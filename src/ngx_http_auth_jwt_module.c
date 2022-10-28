@@ -292,7 +292,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 
       if (ngx_strncmp(claim,claim_value,(int)strlen(claim)) != 0)
       {
-        ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: the value for claim %s is not currect. (value is %s)", claims_data[i].key.data, claim_value);
+        ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: invalid value for claim %s (%s)", claims_data[i].key.data, claim_value);
         return NGX_HTTP_UNAUTHORIZED;
       }
     }
