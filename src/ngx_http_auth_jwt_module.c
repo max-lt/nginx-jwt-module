@@ -403,9 +403,7 @@ static char * ngx_conf_set_auth_jwt_key(ngx_conf_t *cf, ngx_command_t *cmd, void
 static char * ngx_conf_set_auth_jwt(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
   ngx_http_auth_jwt_loc_conf_t *ajcf = conf;
-
   ngx_int_t *flag = &ajcf->jwt_flag;
-  ngx_int_t *index = &ajcf->jwt_var_index;
 
   if (*flag != NGX_CONF_UNSET)
   {
@@ -414,7 +412,7 @@ static char * ngx_conf_set_auth_jwt(ngx_conf_t *cf, ngx_command_t *cmd, void *co
 
   const ngx_str_t *value = cf->args->elts;
 
-  const ngx_str_t var = value[1];
+  const ngx_str_t var = value[1]; // on | off | $variable
 
   if (var.len == 0)
   {
@@ -444,11 +442,10 @@ static char * ngx_conf_set_auth_jwt(ngx_conf_t *cf, ngx_command_t *cmd, void *co
     }
 
     ngx_str_t str = { .data = var.data + 1, .len = var.len - 1 };
-
-    *index = ngx_http_get_variable_index(cf, &str);
-    if (*index == NGX_ERROR)
+    ajcf->jwt_var_index = ngx_http_get_variable_index(cf, &str);
+    if (ajcf->jwt_var_index == NGX_ERROR)
     {
-      ngx_conf_log_error(NGX_LOG_ERR, cf, 0, "JWT: Can get index for {data: %s, len: %d}", var.data, var.len);
+      ngx_conf_log_error(NGX_LOG_ERR, cf, 0, "JWT: Cannot get index for variable %s", var.data);
       return NGX_CONF_ERROR;
     }
   }
