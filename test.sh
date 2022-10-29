@@ -298,6 +298,7 @@ else
   test_conf 'grant-claim-1' 'grant-claim-1.conf syntax is ok' # should be ok
   test_conf 'grant-claim-2' 'grant-claim-2.conf syntax is ok' # should be ok
   test_conf 'grant-claim-3' 'invalid number of arguments in "auth_jwt_claim" directive in /etc/nginx/grant-claim-3.conf:15'
+  test_conf 'grant-claim-4' '"auth_jwt_claim" directive is duplicate in /etc/nginx/grant-claim-4.conf:16'
 fi
 
 if [[ "$USE_CURRENT" == "0" ]]; then

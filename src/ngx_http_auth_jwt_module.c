@@ -56,6 +56,7 @@ static ngx_conf_enum_t ngx_http_auth_jwt_algorithms[] = {
 static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r);
 static ngx_int_t ngx_http_auth_jwt_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
 static ngx_int_t auth_jwt_get_token(u_char **token, ngx_http_request_t *r, const ngx_http_auth_jwt_loc_conf_t *conf);
+static ngx_int_t auth_jwt_check_claims(jwt_t *jwt, ngx_http_request_t *r, const ngx_http_auth_jwt_loc_conf_t *conf);
 static char * auth_jwt_key_from_file(ngx_conf_t *cf, const char *path, ngx_str_t *key);
 static u_char * auth_jwt_safe_string(ngx_pool_t *pool, u_char *src, size_t len);
 
@@ -259,43 +260,11 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
     }
   }
 
-  // Grant all claims
+  // Check claims
   #ifdef FEATURE_JWT_GRANT_CLAIMS
-  if (conf->jwt_claims != NGX_CONF_UNSET_PTR)
+  if (auth_jwt_check_claims(jwt, r, conf) != NGX_OK)
   {
-    ngx_http_auth_jwt_claim_conf_t* claims_data = conf->jwt_claims->elts;
-    for(int i = 0; i < (int)conf->jwt_claims->nelts; i++){
-      const char* claim_name = (char*)claims_data[i].key.data;
-      const char* claim = jwt_get_grant(jwt, claim_name);
-      if (!claim)
-      {
-        ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: claim %s not found.", claims_data[i].key.data);
-        return NGX_HTTP_UNAUTHORIZED;
-      }
-
-      unsigned char* claim_value;
-      if (claims_data[i].var_index > 0)
-      {
-        ngx_http_variable_value_t* value = ngx_http_get_indexed_variable(r, claims_data[i].var_index);
-
-        if (value == NULL || value->not_found || value->len == 0)
-        {
-          ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: Claim Variable %s not found or empty.", claims_data[i].key.data);
-          return NGX_HTTP_UNAUTHORIZED;
-        }
-        claim_value = value->data;
-      }
-      else
-      {
-        claim_value = claims_data[i].value.data;
-      }
-
-      if (ngx_strncmp(claim,claim_value,(int)strlen(claim)) != 0)
-      {
-        ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: invalid value for claim %s (%s)", claims_data[i].key.data, claim_value);
-        return NGX_HTTP_UNAUTHORIZED;
-      }
-    }
+    return NGX_HTTP_UNAUTHORIZED;
   }
   #endif
 
@@ -675,38 +644,50 @@ static char * ngx_conf_set_auth_jwt(ngx_conf_t *cf, ngx_command_t *cmd, void *co
 }
 
 
+// Parse auth_jwt_claim directive
 #ifdef FEATURE_JWT_GRANT_CLAIMS
 static char *ngx_conf_set_auth_jwt_claim(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
-  ngx_http_auth_jwt_loc_conf_t *ajcf = conf;
-  ngx_array_t **a = &ajcf->jwt_claims;
+  const ngx_http_auth_jwt_loc_conf_t *ajcf = conf;
   const ngx_str_t *value = cf->args->elts;
+  const ngx_http_auth_jwt_claim_conf_t *claims = ajcf->jwt_claims->elts;
+
+  const ngx_str_t claim_key = value[1];
+  const ngx_str_t claim_value = value[2];
+
+  // Checking for duplicates (in same context)
+  ngx_uint_t i;
+  for (i = 0; i < ajcf->jwt_claims->nelts; i++) {
+    const ngx_http_auth_jwt_claim_conf_t claim = claims[i];
+    if (claim.key.len == claim_key.len && ngx_strncmp(claim.key.data, claim_key.data, claim_key.len) == 0)
+    {
+      ngx_conf_log_error(NGX_LOG_ERR, cf, 0, "JWT: auth_jwt_claim key \"%s\" is duplicate", claim_key.data);
+      return "is duplicate";
+    }
+  }
 
   // We prepare our array (which may be emtpy) to receive a new element
-  ngx_http_auth_jwt_claim_conf_t *claim = ngx_array_push_n(*a, 1);
+  ngx_http_auth_jwt_claim_conf_t *claim = ngx_array_push_n(ajcf->jwt_claims, 1);
   if (claim == NULL)
   {
     return NGX_CONF_ERROR;
   }
 
-  claim->key = value[1];
-  claim->value = value[2];
-  if (claim->value.data[0] == '$')
+  // Init claim
+  claim->key = claim_key;
+  claim->value = claim_value;
+  claim->var_index = NGX_CONF_UNSET;
+
+  // Get claim value from variable
+  if (claim_value.data[0] == '$')
   {
-    ngx_str_t str = { .data = claim->value.data + 1, .len = claim->value.len - 1 };
-    if (str.data[0] == '$')
+    ngx_str_t str = { .data = claim_value.data + 1, .len = claim_value.len - 1 };
+    claim->var_index = ngx_http_get_variable_index(cf, &str);
+    if (claim->var_index == NGX_ERROR)
     {
-      claim->value = str;
-      claim->var_index = NGX_CONF_UNSET;
+      ngx_conf_log_error(NGX_LOG_ERR, cf, 0, "JWT: Cannot get index for %s", claim_value.data);
+      return NGX_CONF_ERROR;
     }
-    else
-    {
-      claim->var_index = ngx_http_get_variable_index(cf, &str);
-    }
-  }
-  else
-  {
-    claim->var_index = NGX_CONF_UNSET;
   }
 
   return NGX_CONF_OK;
@@ -858,3 +839,51 @@ static ngx_int_t ngx_http_auth_jwt_variable(ngx_http_request_t *r, ngx_http_vari
   v->not_found = 0;
   return NGX_OK;
 }
+
+
+#ifdef FEATURE_JWT_GRANT_CLAIMS
+static ngx_int_t auth_jwt_check_claims(jwt_t *jwt, ngx_http_request_t *r, const ngx_http_auth_jwt_loc_conf_t *conf)
+{
+  const ngx_http_auth_jwt_claim_conf_t* claims = conf->jwt_claims->elts;
+  ngx_uint_t i;
+  for (i = 0; i < conf->jwt_claims->nelts; i++)
+  {
+    const ngx_http_auth_jwt_claim_conf_t claim = claims[i];
+    const char *claim_name = (char *)auth_jwt_safe_string(r->pool, claim.key.data, claim.key.len);
+    const char *jwt_claim_value = jwt_get_grant(jwt, claim_name);
+    if (jwt_claim_value == NULL)
+    {
+      ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: claim %s not found.", claim.key.data);
+      return NGX_ERROR;
+    }
+
+    // We found expected claim in jwt, now we get expected value
+    u_char* claim_value;
+    if (claim.var_index != NGX_CONF_UNSET)
+    {
+      ngx_http_variable_value_t* value = ngx_http_get_indexed_variable(r, claim.var_index);
+
+      if (value == NULL || value->not_found || value->len == 0)
+      {
+        ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: Claim variable %s not found or empty.", claim.key.data);
+        return NGX_ERROR;
+      }
+
+      claim_value = value->data;
+    }
+    else
+    {
+      claim_value = claim.value.data;
+    }
+
+    // We found expected value, now we compare it with jwt value
+    if (ngx_strlen(claim_value) != ngx_strlen(jwt_claim_value) || ngx_strncmp(jwt_claim_value, claim_value, claim.value.len) != 0)
+    {
+      ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: invalid value for claim %s (%s)", claim.key.data, claim_value);
+      return NGX_ERROR;
+    }
+  }
+
+  return NGX_OK;
+}
+#endif
