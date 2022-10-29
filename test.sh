@@ -229,7 +229,8 @@ if [[ "$USE_CURRENT" == "1" ]] && [[ "$DOCKER_CONTAINER_NAME" == "0" ]]; then
   echo -e "${YELLOW}Warning: container identifier not set -> skipping configuration tests${NONE}"
 else
   echo "# Test configurations"
-  test_conf 'invalid-nginx' '"auth_jwt_key" directive is duplicate in /etc/nginx/invalid-nginx.conf:18'
+  test_conf 'invalid-nginx-1' '"auth_jwt_key" directive is duplicate in /etc/nginx/invalid-nginx.conf:18'
+  test_conf 'invalid-nginx-2' 'JWT: key not set in /etc/nginx/invalid-nginx-2.conf:10'
   test_conf 'invalid-arg-1' 'invalid number of arguments in "auth_jwt" directive in /etc/nginx/invalid-arg-1.conf:6'
   test_conf 'invalid-arg-2' 'invalid number of arguments in "auth_jwt_key" directive in /etc/nginx/invalid-arg-2.conf:5'
   test_conf 'invalid-arg-3' 'Invalid key in /etc/nginx/invalid-arg-3.conf:5'
