@@ -255,8 +255,12 @@ test_jwt "Test claim with expected claim but invalid signature should return 401
 test_jwt "Test claim with expected claim but invalid signature should return 401 (inherited)" "/claim/simple" "401" "--header \"Authorization: Bearer ${JWT}\""
 
 echo "# Test compound claim"
-test_jwt "Test claim with valid jwt but partial claim should return 401" "/claim-compound" "401" "--header \"Authorization: Bearer ${JWT}\""
-test_jwt "Test claim with valid jwt but partial claim should return 401 (inherited)" "/claim/compound" "401" "--header \"Authorization: Bearer ${JWT}\""
+JWT='eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYWRtaW4ifQ.AnK-9_1YHP4LqTSGBMbv6GnRiZ-eGOcquN2kxHukPQo' # { "role": "admin" }
+test_jwt "Test claim with valid jwt but partial claim (a/ab) should return 401" "/claim-compound" "401" "--header \"Authorization: Bearer ${JWT}\""
+test_jwt "Test claim with valid jwt but partial claim (a/ab) should return 401 (inherited)" "/claim/compound" "401" "--header \"Authorization: Bearer ${JWT}\""
+JWT='eyJhbGciOiJIUzI1NiJ9.eyJ2YWx1ZSI6InRlc3QifQ.uJIn9bitKc6X_ZmDSFHSkWf5Bwpzm024Fac7x0JbC40' # { "value": "test" }
+test_jwt "Test claim with valid jwt but partial claim (b/ab) should return 401" "/claim-compound" "401" "--header \"Authorization: Bearer ${JWT}\""
+test_jwt "Test claim with valid jwt but partial claim (b/ab) should return 401 (inherited)" "/claim/compound" "401" "--header \"Authorization: Bearer ${JWT}\""
 JWT='eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYWRtaW4iLCJ2YWx1ZSI6InRlc3QifQ.6NFXSwdWwfSkWes97lBX0M5qJVCFFXlxkuI_McvdvFQ' # { "role": "admin", "value": "test" }
 test_jwt "Test claim with valid jwt and expected claim should return 201" "/claim-compound" "201" "--header \"Authorization: Bearer ${JWT}\""
 test_jwt "Test claim with valid jwt and expected claim should return 202 (inherited)" "/claim/compound" "202" "--header \"Authorization: Bearer ${JWT}\""

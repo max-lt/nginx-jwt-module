@@ -342,7 +342,13 @@ static void * ngx_http_auth_jwt_create_conf(ngx_conf_t *cf)
   conf->jwt_require_error = NGX_CONF_UNSET_UINT;
 
   #ifdef FEATURE_JWT_GRANT_CLAIMS
-  conf->jwt_claims = NGX_CONF_UNSET_PTR;
+  // Create empty array
+  conf->jwt_claims = ngx_array_create(cf->pool, 0, sizeof(ngx_http_auth_jwt_claim_conf_t));
+  if (conf->jwt_claims == NULL)
+  {
+    ngx_conf_log_error(NGX_LOG_ERR, cf, 0, "JWT: failed to allocate conf->jwt_claims");
+    return NULL;
+  }
   #endif
 
   return conf;
@@ -362,7 +368,10 @@ static char * ngx_http_auth_jwt_merge_conf(ngx_conf_t *cf, void *parent, void *c
   ngx_conf_merge_ptr_value(conf->jwt_require, prev->jwt_require, NGX_CONF_UNSET_PTR);
 
   #ifdef FEATURE_JWT_GRANT_CLAIMS
-  ngx_conf_merge_ptr_value(conf->jwt_claims, prev->jwt_claims , NGX_CONF_UNSET_PTR);
+  if (prev->jwt_claims->nelts) {
+    void *elt = ngx_array_push_n(conf->jwt_claims, prev->jwt_claims->nelts);
+    ngx_memcpy(elt, prev->jwt_claims->elts, prev->jwt_claims->nelts * prev->jwt_claims->size);
+  }
   #endif
 
   // If auth_jwt is active, we must have a key
@@ -666,61 +675,38 @@ static char * ngx_conf_set_auth_jwt(ngx_conf_t *cf, ngx_command_t *cmd, void *co
 }
 
 
-
-
 #ifdef FEATURE_JWT_GRANT_CLAIMS
 static char *ngx_conf_set_auth_jwt_claim(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
-  char *p = conf;
+  ngx_http_auth_jwt_loc_conf_t *ajcf = conf;
+  ngx_array_t **a = &ajcf->jwt_claims;
+  const ngx_str_t *value = cf->args->elts;
 
-  ngx_str_t                       *value;
-  ngx_array_t                     **a;
-  ngx_http_auth_jwt_claim_conf_t  *claim_conf;
-  ngx_conf_post_t                 *post;
-
-  a = (ngx_array_t **) (p + cmd->offset);
-
-  if (*a == NGX_CONF_UNSET_PTR || *a == NULL)
-  {
-    *a = ngx_array_create(cf->pool, 4, sizeof(ngx_http_auth_jwt_claim_conf_t));
-    if (*a == NULL)
-    {
-      return NGX_CONF_ERROR;
-    }
-  }
-
-  claim_conf = ngx_array_push(*a);
-  if (claim_conf == NULL)
+  // We prepare our array (which may be emtpy) to receive a new element
+  ngx_http_auth_jwt_claim_conf_t *claim = ngx_array_push_n(*a, 1);
+  if (claim == NULL)
   {
     return NGX_CONF_ERROR;
   }
 
-  value = cf->args->elts;
-
-  claim_conf->key = value[1];
-  claim_conf->value = value[2];
-  if (value[2].data[0] == '$')
+  claim->key = value[1];
+  claim->value = value[2];
+  if (claim->value.data[0] == '$')
   {
-    ngx_str_t var_name = { .data = value[2].data + 1, .len = value[2].len - 1 };
-    if (var_name.data[0] == '$')
+    ngx_str_t str = { .data = claim->value.data + 1, .len = claim->value.len - 1 };
+    if (str.data[0] == '$')
     {
-      claim_conf->value = var_name;
-      claim_conf->var_index = NGX_CONF_UNSET;
+      claim->value = str;
+      claim->var_index = NGX_CONF_UNSET;
     }
     else
     {
-      claim_conf->var_index = ngx_http_get_variable_index(cf, &var_name);
+      claim->var_index = ngx_http_get_variable_index(cf, &str);
     }
   }
   else
   {
-    claim_conf->var_index = NGX_CONF_UNSET;
-  }
-
-  if (cmd->post)
-  {
-    post = cmd->post;
-    return post->post_handler(cf, post, claim_conf);
+    claim->var_index = NGX_CONF_UNSET;
   }
 
   return NGX_CONF_OK;
