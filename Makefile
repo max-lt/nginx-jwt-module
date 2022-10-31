@@ -31,6 +31,10 @@ test/docker:
 	@cat Dockerfile Dockerfile.test > Dockerfile.merged
 	@docker build -f Dockerfile.merged .
 
+# Build test image
+test-image: build test-image/*
+	@cd test-image && docker build -f Dockerfile -t jwt-nginx-test .
+
 # Build test image & run test suite
 test: test/keys build
 	@bash test.sh

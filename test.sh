@@ -205,6 +205,11 @@ test_jwt "Invalid jwt in header should return 401" "/secure-auth-header" "401" "
 test_jwt "Invalid jwt in header should return 401" "/secure-auth-header" "401" "--header \"Authorization: BearAr a\""
 test_jwt "Invalid jwt in header should return 401" "/secure-auth-header" "401" "--header \"Authorization: BearAuthorization\""
 
+echo "# Test key encodings"
+JWT='eyJhbGciOiJIUzI1NiJ9.e30.XmNK3GpH3Ys_7wsYBfq4C3M6goz71I7dTgUkuIa5lyQ'
+test_jwt "Calling string-encoded with valid jwt should return 201" "/string-encoded" "201" "--header \"Authorization: Bearer ${JWT}\""
+test_jwt "Calling base64-encoded with valid jwt should return 201" "/base64-encoded" "201" "--header \"Authorization: Bearer ${JWT}\""
+
 echo "# Test RSA files as keys"
 test_jwt "Valid jwt (RS256)" "/rsa-file-encoded" "201" "--header \"Authorization: Bearer ${VALID_RS256}\""
 test_jwt "Valid jwt (RS512)" "/rsa-file-encoded" "201" "--header \"Authorization: Bearer ${VALID_RS512}\""
