@@ -128,6 +128,14 @@ server {
 
 > Note that as `$jwt_claim_` returns a JSON-encoded value, we check form `\"value\"` (and not  `value`)
 
+<hr>
+
+    Syntax:	 auth_jwt_claim key value;
+    Context: http, server, location
+
+Specifies Jwt must have this claim. This config can be used multiple times and inherits from previous configuration levels.
+
+
 ### Embedded Variables:
 The ngx_http_auth_jwt_module module supports embedded variables:
 - $jwt_header_*name* returns the specified header value
@@ -137,12 +145,6 @@ The ngx_http_auth_jwt_module module supports embedded variables:
 
 > Note that as all returned values are JSON-encoded, so string will be surrounded by `"` character
 
-<hr>
-
-    Syntax:	 auth_jwt_claim key value;
-    Context: http, server, location
-
-Specifies Jwt must have this claim. This config can be used multiple times.
 
 ### Image:
 Image is generated with Github Actions (see [nginx-jwt-module:latest][github-container-url])
