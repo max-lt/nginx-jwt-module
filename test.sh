@@ -229,6 +229,21 @@ echo "# Test with multiple cookies"
 test_jwt "Calling with valid jwt cookie and some cookies" "/secure-cookie" "201" "--cookie \"rampartjwt=${VALID_JWT}; session=${VALID_JWT}\""
 test_jwt "Calling with some cookies and valid jwt cookie" "/secure-cookie" "201" "--cookie \"rampartjwt=${VALID_JWT}; session=${VALID_JWT}\""
 
+echo "# Test auth_jwt_require"
+JWT='eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYWRtaW4ifQ.AnK-9_1YHP4LqTSGBMbv6GnRiZ-eGOcquN2kxHukPQo' # { "role": "admin" }
+test_jwt "Calling with expected claim (role==admin) should return 201" "/auth-require" "201" "--header \"Authorization: Bearer ${JWT}\""
+JWT='eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoidXNlciJ9.wlUY-DvK0sM6uiNlUrMsey8sMkn5xHCaml--Yg6VRCc' # { "role": "user" }
+test_jwt "Calling with expected claim (role!=admin) should return 403" "/auth-require" "403" "--header \"Authorization: Bearer ${JWT}\""
+JWT='eyJhbGciOiJIUzI1NiJ9.eyJzY29wZSI6InB1YmxpYyJ9.Ho4ZSmMDQ61wxqB-uRNdXHENSnxrrTiW91vFL9vApTY' # { "scope": "public" }
+test_jwt "Calling without expected claim (role) should return 403" "/auth-require" "403" "--header \"Authorization: Bearer ${JWT}\""
+# compound
+JWT='eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYWRtaW4ifQ.AnK-9_1YHP4LqTSGBMbv6GnRiZ-eGOcquN2kxHukPQo' # { "role": "admin" }
+test_jwt "Test claim with valid jwt but partial claim (a/ab) should return 403" "/auth-compound-require" "403" "--header \"Authorization: Bearer ${JWT}\""
+JWT='eyJhbGciOiJIUzI1NiJ9.eyJzY29wZSI6InJlc3RyaWN0ZWQifQ.qD7C6CC8P3PCfl7lVMzcybQs0tZuq3bSx1Rtkz-fioE' # { "scope": "restricted" }
+test_jwt "Test claim with valid jwt but partial claim (b/ab) should return 403" "/auth-compound-require" "403" "--header \"Authorization: Bearer ${JWT}\""
+JWT='eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYWRtaW4iLCJzY29wZSI6InJlc3RyaWN0ZWQifQ.Q7wrUA1Ao3Bt-lQpE3ubnYfn_Yu2FCbEENC8JiED5ZY' # { "role": "admin", "scope": "restricted" }
+test_jwt "Test claim with valid jwt and expected claim should return 201" "/auth-compound-require" "201" "--header \"Authorization: Bearer ${JWT}\""
+
 
 if [[ "$USE_CURRENT" == "1" ]] && [[ "$DOCKER_CONTAINER_NAME" == "0" ]]; then
   echo -e "${YELLOW}Warning: container identifier not set -> skipping configuration tests${NONE}"
@@ -243,6 +258,12 @@ else
   test_conf 'invalid-arg-5' 'No such file or directory (2: No such file or directory) in /etc/nginx/invalid-arg-5.conf:5'
   test_conf 'invalid-key-1' 'Failed to turn hex key into binary in /etc/nginx/invalid-key-1.conf:5'
   test_conf 'invalid-key-2' 'Failed to turn base64 key into binary in /etc/nginx/invalid-key-2.conf:5'
+  test_conf 'invalid-require-1' 'invalid error code 402 in /etc/nginx/invalid-require-1.conf:17'
+  test_conf 'invalid-require-2' 'error=403 cannot be the single element of jwt_auth_require directive in /etc/nginx/invalid-require-2.conf:17'
+  test_conf 'invalid-require-3' 'error=401 must be the last element of jwt_auth_require directive in /etc/nginx/invalid-require-3.conf:17'
+  test_conf 'invalid-require-4' 'invalid variable name "admin=true" in /etc/nginx/invalid-require-6.conf:13'
+  test_conf 'invalid-require-5' 'unknown "jwt_has_admin_role" variable'
+  test_conf 'invalid-require-6' '"auth_jwt_require" directive is duplicate in /etc/nginx/invalid-require-6.conf:23'
 fi
 
 if [[ "$USE_CURRENT" == "0" ]]; then

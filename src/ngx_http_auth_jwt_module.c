@@ -6,10 +6,12 @@
 #include <jansson.h>
 
 typedef struct {
-  ngx_str_t jwt_key;          // Forwarded key (with auth_jwt_key)
-  ngx_int_t jwt_flag;         // Function of "auth_jwt": on -> 1 | off -> 0 | $variable -> 2
-  ngx_int_t jwt_var_index;    // Used only if jwt_flag==2 to fetch the $variable value
-  ngx_uint_t jwt_algorithm;
+  ngx_str_t jwt_key;            // Forwarded key (with auth_jwt_key)
+  ngx_int_t jwt_flag;           // Function of "auth_jwt": on -> 1 | off -> 0 | $variable -> 2
+  ngx_int_t jwt_var_index;      // Used only if jwt_flag==2 to fetch the $variable value
+  ngx_uint_t jwt_algorithm;     // Member of ngx_http_auth_jwt_algorithms, defaults to JWT_ALG_ANY
+  ngx_array_t* jwt_require;     // ngx_int_t array of auth_jwt_require indexes
+  ngx_uint_t jwt_require_error; // error code (401|403) to use when jwt_require rejects the request
 } ngx_http_auth_jwt_loc_conf_t;
 
 #define NGX_HTTP_AUTH_JWT_OFF        0
@@ -52,6 +54,7 @@ static void * ngx_http_auth_jwt_create_conf(ngx_conf_t *cf);
 static char * ngx_http_auth_jwt_merge_conf(ngx_conf_t *cf, void *parent, void *child);
 
 // Declaration functions
+static char * ngx_conf_set_auth_jwt_require(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static char * ngx_conf_set_auth_jwt_key(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static char * ngx_conf_set_auth_jwt(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
@@ -81,6 +84,14 @@ static ngx_command_t ngx_http_auth_jwt_commands[] = {
     NGX_HTTP_LOC_CONF_OFFSET,
     offsetof(ngx_http_auth_jwt_loc_conf_t, jwt_algorithm),
     &ngx_http_auth_jwt_algorithms },
+
+  // auth_jwt_require $value ... [error=401 | 403] ;
+  { ngx_string("auth_jwt_require"),
+    NGX_HTTP_MAIN_CONF|NGX_HTTP_SRV_CONF|NGX_HTTP_LOC_CONF|NGX_CONF_1MORE,
+    ngx_conf_set_auth_jwt_require,
+    NGX_HTTP_LOC_CONF_OFFSET,
+    offsetof(ngx_http_auth_jwt_loc_conf_t, jwt_require),
+    NULL },
 
   ngx_null_command
 };
@@ -186,6 +197,9 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
   cln->handler = (ngx_pool_cleanup_pt)jwt_free;
   cln->data = jwt;
 
+  // Set jwt as module context
+  ngx_http_set_ctx(r, jwt, ngx_http_auth_jwt_module);
+
   // Validate the algorithm
   jwt_alg_t alg = jwt_get_alg(jwt);
   // Reject incoming token with a "none" algorithm, or, if auth_jwt_alg is set, those with a different one.
@@ -203,8 +217,23 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
     return NGX_HTTP_UNAUTHORIZED;
   }
 
-  // Set jwt as module context
-  ngx_http_set_ctx(r, jwt, ngx_http_auth_jwt_module);
+  // Validate jwt_require
+  if (conf->jwt_require != NGX_CONF_UNSET_PTR)
+  {
+    ngx_uint_t i;
+    for (i = 0; i < conf->jwt_require->nelts; i++) {
+      const ngx_int_t var_index = ((ngx_int_t *) conf->jwt_require->elts)[i];
+      const ngx_http_variable_value_t *value = ngx_http_get_indexed_variable(r, var_index);
+      if (value == NULL || value->not_found || value->len == 0) {
+        return conf->jwt_require_error;
+      }
+
+      // Value found but is "0"
+      if (value->len == 1 && value->data[0] == '0') {
+        return conf->jwt_require_error;
+      }
+    }
+  }
 
   return NGX_OK;
 }
@@ -245,6 +274,8 @@ static void * ngx_http_auth_jwt_create_conf(ngx_conf_t *cf)
   conf->jwt_flag = NGX_CONF_UNSET;
   conf->jwt_var_index = NGX_CONF_UNSET;
   conf->jwt_algorithm = NGX_CONF_UNSET_UINT;
+  conf->jwt_require = NGX_CONF_UNSET_PTR;
+  conf->jwt_require_error = NGX_CONF_UNSET_UINT;
 
   return conf;
 }
@@ -259,6 +290,8 @@ static char * ngx_http_auth_jwt_merge_conf(ngx_conf_t *cf, void *parent, void *c
   ngx_conf_merge_value(conf->jwt_var_index, prev->jwt_var_index, NGX_CONF_UNSET);
   ngx_conf_merge_value(conf->jwt_flag, prev->jwt_flag, NGX_HTTP_AUTH_JWT_OFF);
   ngx_conf_merge_uint_value(conf->jwt_algorithm, prev->jwt_algorithm, JWT_ALG_ANY);
+  ngx_conf_merge_uint_value(conf->jwt_require_error, prev->jwt_require_error, 401);
+  ngx_conf_merge_ptr_value(conf->jwt_require, prev->jwt_require, NGX_CONF_UNSET_PTR);
 
   // If auth_jwt is active, we must have a key
   if (conf->jwt_flag != NGX_HTTP_AUTH_JWT_OFF && conf->jwt_key.data == NULL) {
@@ -320,6 +353,82 @@ static char * auth_jwt_key_from_file(ngx_conf_t *cf, const char *path, ngx_str_t
   }
 
   fclose(fp);
+
+  return NGX_CONF_OK;
+}
+
+
+// Parse auth_jwt_require directive
+static char * ngx_conf_set_auth_jwt_require(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
+{
+  ngx_http_auth_jwt_loc_conf_t *ajcf = conf;
+  ngx_array_t **a = &ajcf->jwt_require;
+  ngx_str_t *elts = cf->args->elts;
+
+  if (*a != NGX_CONF_UNSET_PTR) {
+    return "is duplicate";
+  }
+
+  *a = ngx_array_create(cf->pool, 4, sizeof(ngx_int_t));
+  if (*a == NULL) {
+    return NGX_CONF_ERROR;
+  }
+
+  ngx_uint_t i;
+  for (i = 1; i < cf->args->nelts; i++) {
+    ngx_str_t var = elts[i];
+
+    if (ngx_strncmp(var.data, "error=", 6) == 0) {
+      if (i != cf->args->nelts -1) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "%s must be the last element of jwt_auth_require directive", var.data);
+        return NGX_CONF_ERROR;
+      }
+
+      if (i == 1) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "%s cannot be the single element of jwt_auth_require directive", var.data);
+        return NGX_CONF_ERROR;
+      }
+
+      // Parse code to int
+      ngx_int_t code = ngx_atoi(var.data + 6, var.len - 6);
+      if (code < 0) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "failed to parse error code %s", var.data + 6);
+        return NGX_CONF_ERROR;
+      }
+
+      // Error code must be 401 or 403
+      if (code != 401 && code != 403) {
+        ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "invalid error code %d", code);
+        return NGX_CONF_ERROR;
+      }
+
+      ajcf->jwt_require_error = code;
+
+      continue;
+    }
+
+    if (var.data[0] != '$') {
+      ngx_conf_log_error(NGX_LOG_EMERG, cf, 0, "invalid variable name \"%V\"", &var);
+      return NGX_CONF_ERROR;
+    }
+
+    // Get variable index
+    ngx_str_t str = { .data = var.data + 1, .len = var.len - 1 };
+    ngx_int_t index = ngx_http_get_variable_index(cf, &str);
+    if (index == NGX_ERROR)
+    {
+      ngx_conf_log_error(NGX_LOG_ERR, cf, 0, "JWT: Cannot get index for variable %s", var.data);
+      return NGX_CONF_ERROR;
+    }
+
+    // Push variable index to require
+    ngx_int_t *elt = ngx_array_push(*a);
+    if (elt == NULL) {
+      return NGX_CONF_ERROR;
+    }
+
+    *elt = index;
+  }
 
   return NGX_CONF_OK;
 }

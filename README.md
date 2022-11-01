@@ -57,7 +57,9 @@ server {
     Default: auth_jwt off;
     Context: http, server, location
 
-Enables validation of JWT.<hr>
+Enables validation of JWT.
+
+<hr>
 
     Syntax:	 auth_jwt_key value [encoding];
     Default: ——
@@ -75,6 +77,46 @@ The `file` option requires the *value* to be a valid file path (pointing to a PE
 
 Specifies which algorithm the server expects to receive in the JWT.
 
+<hr>
+
+    Syntax:	 auth_jwt_require $value ... [error=401 | 403];
+    Default: ——
+    Context: http, server, location
+
+Specifies additional checks for JWT validation. The authentication will succeed only if all the values are not empty and are not equal to “0”.
+
+These directives are inherited from the previous configuration level if and only if there are no auth_jwt_require directives defined on the current level.
+
+If any of the checks fails, the 401 error code is returned. The optional error parameter allows redefining the error code to 403.
+
+Example:
+```nginx
+# server.conf
+
+map $jwt_claim_role $jwt_has_admin_role {
+    \"admin\"  1;
+}
+
+map $jwt_claim_scope $jwt_has_restricted_scope {
+    \"restricted\"  1;
+}
+
+server {
+  # ...
+
+  location /auth-require {
+    auth_jwt_require $jwt_has_admin_role error=403;
+    # ...
+  }
+
+  location /auth-compound-require {
+    auth_jwt_require $jwt_has_admin_role $jwt_has_restricted_scope error=403;
+    # ...
+  }
+}
+```
+
+> Note that as `$jwt_claim_` returns a JSON-encoded value, we check form `\"value\"` (and not  `value`)
 
 ### Embedded Variables:
 The ngx_http_auth_jwt_module module supports embedded variables:
@@ -83,6 +125,7 @@ The ngx_http_auth_jwt_module module supports embedded variables:
 - $jwt_headers returns headers
 - $jwt_payload returns payload
 
+> Note that as all returned values are JSON-encoded, so string will be surrounded by `"` character
 
 ### Image:
 Image is generated with Github Actions (see [nginx-jwt-module:latest][github-container-url])
