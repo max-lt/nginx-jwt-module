@@ -14,7 +14,6 @@ typedef struct {
   ngx_uint_t jwt_algorithm;     // Member of ngx_http_auth_jwt_algorithms, defaults to JWT_ALG_ANY
   ngx_array_t* jwt_require;     // ngx_int_t array of auth_jwt_require indexes
   ngx_uint_t jwt_require_error; // error code (401|403) to use when jwt_require rejects the request
-  ngx_uint_t jwt_algorithm;
   ngx_array_t* jwt_claims;
 } ngx_http_auth_jwt_loc_conf_t;
 
