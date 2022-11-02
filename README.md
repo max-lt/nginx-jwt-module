@@ -11,7 +11,7 @@ This is an NGINX module to check for a valid JWT.
 
 Inspired by [TeslaGov](https://github.com/TeslaGov/ngx-http-auth-jwt-module), [ch1bo](https://github.com/ch1bo/nginx-jwt) and [tizpuppi](https://github.com/tizpuppi/ngx_http_auth_jwt_module), this module intend to be as light as possible and to remain simple.
  - Docker image based on the [official nginx Dockerfile](https://github.com/nginxinc/docker-nginx) (alpine).
- - Light image (~16MB).
+ - Light image (~10MB).
 
 ### Module:
 
