@@ -21,7 +21,7 @@ jobs:
         run: cat Dockerfile Dockerfile.test > Dockerfile.merged
       - name: Test
         id: docker_test_image
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v4
         with:
           context: ./
           file: ./Dockerfile.merged
@@ -56,7 +56,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build
         id: docker_build_image
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v4
         with:
           context: ./
           file: ./Dockerfile
