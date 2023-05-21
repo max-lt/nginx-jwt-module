@@ -41,7 +41,8 @@ static ngx_conf_enum_t ngx_http_auth_jwt_algorithms[] = {
   { ngx_string("any"), JWT_ALG_ANY }
 };
 
-static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r);
+static ngx_int_t ngx_http_auth_jwt_access_handler(ngx_http_request_t *r); // Access handler function (access phase)
+static ngx_int_t ngx_http_auth_jwt_variable_handler(ngx_http_request_t *r); // Variables handler function (preaccess phase)
 static ngx_int_t ngx_http_auth_jwt_variable(ngx_http_request_t *r, ngx_http_variable_value_t *v, uintptr_t data);
 static ngx_int_t auth_jwt_get_token(u_char **token, ngx_http_request_t *r, const ngx_http_auth_jwt_loc_conf_t *conf);
 static char * auth_jwt_key_from_file(ngx_conf_t *cf, const char *path, ngx_str_t *key);
@@ -153,7 +154,7 @@ ngx_module_t ngx_http_auth_jwt_module = {
 };
 
 
-static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
+static ngx_int_t ngx_http_auth_jwt_variable_handler(ngx_http_request_t *r)
 {
   const ngx_http_auth_jwt_loc_conf_t *conf;
   u_char *jwt_data;
@@ -167,7 +168,7 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
     return NGX_DECLINED;
   }
 
-  // Pass through options requests without token authentication
+  // Pass through options requests without authentication token
   if (r->method == NGX_HTTP_OPTIONS)
   {
     return NGX_DECLINED;
@@ -177,15 +178,16 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
   if (auth_jwt_get_token(&jwt_data, r, conf) != NGX_OK)
   {
     ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: failed to find a jwt");
-    return NGX_HTTP_UNAUTHORIZED;
+    return NGX_DECLINED;
   }
 
   // Validate the jwt
   if (jwt_decode(&jwt, (char *)jwt_data, conf->jwt_key.data, conf->jwt_key.len))
   {
     ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: failed to parse jwt");
-    return NGX_HTTP_UNAUTHORIZED;
+    return NGX_DECLINED;
   }
+
   // jwt_decode succeeded and allocated an jwt object.
   // We register jwt_free as a function to be called on pool cleanup.
   ngx_pool_cleanup_t *cln = ngx_pool_cleanup_add(r->pool, 0);
@@ -199,6 +201,38 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 
   // Set jwt as module context
   ngx_http_set_ctx(r, jwt, ngx_http_auth_jwt_module);
+
+  // We need to return NGX_DECLINED instead of NGX_OK to
+  // allow other modules to use execute their handlers
+  return NGX_DECLINED;
+}
+
+
+static ngx_int_t ngx_http_auth_jwt_access_handler(ngx_http_request_t *r)
+{
+  const ngx_http_auth_jwt_loc_conf_t *conf;
+  jwt_t *jwt = NULL;
+
+  conf = ngx_http_get_module_loc_conf(r, ngx_http_auth_jwt_module);
+
+  // Pass through if "auth_jwt" is "off"
+  if (conf->jwt_flag == NGX_HTTP_AUTH_JWT_OFF)
+  {
+    return NGX_DECLINED;
+  }
+
+  // Pass through options requests without authentication token
+  if (r->method == NGX_HTTP_OPTIONS)
+  {
+    return NGX_DECLINED;
+  }
+
+  // Get jwt from module context (set in variable handler)
+  jwt = ngx_http_get_module_ctx(r, ngx_http_auth_jwt_module);
+  if (!jwt) {
+    ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: failed to get jwt from module context");
+    return NGX_HTTP_UNAUTHORIZED;
+  }
 
   // Validate the algorithm
   jwt_alg_t alg = jwt_get_alg(jwt);
@@ -241,18 +275,33 @@ static ngx_int_t ngx_http_auth_jwt_handler(ngx_http_request_t *r)
 
 static ngx_int_t ngx_http_auth_jwt_init(ngx_conf_t *cf)
 {
-  ngx_http_handler_pt        *h;
+  ngx_http_handler_pt        *variable_handler;
+  ngx_http_handler_pt        *access_handler;
   ngx_http_core_main_conf_t  *cmcf;
 
   cmcf = ngx_http_conf_get_module_main_conf(cf, ngx_http_core_module);
 
-  h = ngx_array_push(&cmcf->phases[NGX_HTTP_ACCESS_PHASE].handlers);
-  if (h == NULL)
+  // Register variable handler
   {
-    return NGX_ERROR;
+    variable_handler = ngx_array_push(&cmcf->phases[NGX_HTTP_PREACCESS_PHASE].handlers);
+    if (variable_handler == NULL)
+    {
+      return NGX_ERROR;
+    }
+
+    *variable_handler = ngx_http_auth_jwt_variable_handler;
   }
 
-  *h = ngx_http_auth_jwt_handler;
+  // Register access handler
+  {
+    access_handler = ngx_array_push(&cmcf->phases[NGX_HTTP_ACCESS_PHASE].handlers);
+    if (access_handler == NULL)
+    {
+      return NGX_ERROR;
+    }
+
+    *access_handler = ngx_http_auth_jwt_access_handler;
+  }
 
   return NGX_OK;
 }
@@ -671,15 +720,16 @@ static ngx_int_t auth_jwt_get_token(u_char **token, ngx_http_request_t *r, const
 
 
 static ngx_int_t ngx_http_auth_jwt_add_variables(ngx_conf_t *cf) {
-  ngx_http_variable_t *jv, *v;
+  ngx_http_variable_t *var, *v;
 
-  for (jv = ngx_http_auth_jwt_variables; jv->name.len; jv++) {
-    v = ngx_http_add_variable(cf, &jv->name, jv->flags);
-    if (v == NULL) {
+  for (v = ngx_http_auth_jwt_variables; v->name.len; v++) {
+    var = ngx_http_add_variable(cf, &v->name, v->flags);
+    if (var == NULL) {
       return NGX_ERROR;
     }
 
-    *v = *jv;
+    var->get_handler = v->get_handler;
+    var->data = v->data;
   }
 
   return NGX_OK;
