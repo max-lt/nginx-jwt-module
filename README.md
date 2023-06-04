@@ -53,6 +53,8 @@ server {
 
 ### Directives:
 
+#### auth_jwt
+
     Syntax:	 auth_jwt $variable | on | off;
     Default: auth_jwt off;
     Context: http, server, location
@@ -60,6 +62,8 @@ server {
 Enables validation of JWT.
 
 <hr>
+
+#### auth_jwt_key
 
     Syntax:	 auth_jwt_key value [encoding];
     Default: ——
@@ -71,6 +75,8 @@ The `file` option requires the *value* to be a valid file path (pointing to a PE
 
 <hr>
 
+#### auth_jwt_alg
+
     Syntax:	 auth_jwt_alg any | HS256 | HS384 | HS512 | RS256 | RS384 | RS512 | ES256 | ES384 | ES512;
     Default: auth_jwt_alg any;
     Context: http, server, location
@@ -78,6 +84,8 @@ The `file` option requires the *value* to be a valid file path (pointing to a PE
 Specifies which algorithm the server expects to receive in the JWT.
 
 <hr>
+
+#### auth_jwt_require
 
     Syntax:	 auth_jwt_require $value ... [error=401 | 403];
     Default: ——
