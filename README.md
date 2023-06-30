@@ -61,6 +61,8 @@ server {
 
 Enables validation of JWT.
 
+The `auth_jwt $variable` value can be used to set a custom way to get the JWT, for example to get it from a cookie instead of the default `Authentication` header: ` auth_jwt $cookie_MyCookieName;`
+
 <hr>
 
 #### auth_jwt_key
