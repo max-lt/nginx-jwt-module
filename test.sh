@@ -177,6 +177,14 @@ test_jwt "Expired jwt in header on auth-disabled should return 201" "/auth-disab
 test_jwt "Expired jwt on secure-cookie should return 401" "/secure-cookie"      "401" "--cookie \"rampartjwt=${JWT}\""
 test_jwt "Expired jwt on secure-auth-h should return 401" "/secure-auth-header" "401" "--header \"Authorization: Bearer ${JWT}\""
 
+echo "# Test float exp claim" # { "exp": 1698742245.336421 }
+JWT='eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjE2OTg3NDIyNDUuMzM2NDIxfQ.Wh-6szLG-7TcO19Efwh5A7IBoMWPPfttxwgUFKBhDJA'
+test_jwt "Expired jwt on secure-auth-h should return 401" "/secure-auth-header" "401" "--header \"Authorization: Bearer ${JWT}\""
+
+echo "# Test invalid exp" # { "exp": "1698742245" }
+JWT='eyJhbGciOiJIUzI1NiJ9.eyJleHAiOiIxNjk4NzQyMjQ1In0.Vpvf77sGNljk6gmGnaDPE1LTD_wEo-GTFZrCWiAfVgM'
+test_jwt "Expired jwt on secure-auth-h should return 401" "/secure-auth-header" "401" "--header \"Authorization: Bearer ${JWT}\""
+
 echo "# Test exp claim with non-expired jwt (2032-01-01)"
 JWT='eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjE5NTY1MjgwMDB9.3rTJLB2KJxDoTImIsyMC4Bo5R1IY-d9dhr75llFiw_8'
 test_jwt "Calling secure-cookie with non-expired jwt should return 201" "/secure-cookie"      "201" "--cookie \"rampartjwt=${JWT}\""

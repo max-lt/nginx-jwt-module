@@ -243,12 +243,23 @@ static ngx_int_t ngx_http_auth_jwt_access_handler(ngx_http_request_t *r)
     return NGX_HTTP_UNAUTHORIZED;
   }
 
-  // Validate the exp date of the JWT; Still valid if "exp" missing (exp == -1)
-  time_t exp = (time_t)jwt_get_grant_int(jwt, "exp");
-  if (exp != -1 && exp < time(NULL))
+  // Validate the exp date of the JWT; Still valid if "exp" missing
+  char* exp_str = jwt_get_grants_json(jwt, "exp");
+  if (exp_str)
   {
-    ngx_log_error(NGX_LOG_INFO, r->connection->log, 0, "JWT: the jwt has expired [exp=%ld]", (long)exp);
-    return NGX_HTTP_UNAUTHORIZED;
+    long int exp = strtol(exp_str, NULL, 10);
+
+    if (exp == 0)
+    {
+      ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: invalid exp date in jwt %s", exp_str);
+      return NGX_HTTP_UNAUTHORIZED;
+    }
+
+    if (exp < time(NULL))
+    {
+      ngx_log_error(NGX_LOG_INFO, r->connection->log, 0, "JWT: the jwt has expired [exp=%ld]", (long)exp);
+      return NGX_HTTP_UNAUTHORIZED;
+    }
   }
 
   // Validate jwt_require
