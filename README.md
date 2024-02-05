@@ -126,7 +126,7 @@ server {
 }
 ```
 
-> Note that as `$jwt_claim_` returns a JSON-encoded value, we check form `\"value\"` (and not  `value`)
+> Note that as `$jwt_claim_` returns a JSON-encoded value, so we have to check `\"value\"` (and not  `value`)
 
 ### Embedded Variables:
 The ngx_http_auth_jwt_module module supports embedded variables:
@@ -148,7 +148,7 @@ docker pull ghcr.io/max-lt/nginx-jwt-module:latest
 ```dockerfile
 FROM ghcr.io/max-lt/nginx-jwt-module:latest
 
-# Copy you nginx conf
+# Copy your nginx conf
 # Don't forget to include this module in your configuration
 # load_module /usr/lib/nginx/modules/ngx_http_auth_jwt_module.so;
 COPY my-nginx-conf /etc/nginx
