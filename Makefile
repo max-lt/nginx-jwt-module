@@ -40,7 +40,7 @@ test: test/keys build
 	@bash test.sh
 
 build:
-	@docker build -f Dockerfile -t jwt-nginx .
+	@docker build --progress plain -f Dockerfile -t jwt-nginx .
 
 clear:
 	@rm -r $(keys_path)
