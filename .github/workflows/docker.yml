@@ -5,6 +5,9 @@ on:
     branches: [ master ]
     tags:
       - 'v*.*.*'
+    paths: 
+      - 'src/**.c'
+      - 'Dockerfile'
   pull_request:
     branches: [ master ]
 
