@@ -13,11 +13,11 @@ This is an NGINX module to check for a valid JWT, this module intend to be as li
 
 ### Table of Contents:
 
-  - [Module Configuration](#module-configuration)
+  - [Module configuration](#module-configuration)
   - [Directives](#directives)
-  - [Embedded Variables](#embedded-variables)
+  - [Embedded variables](#embedded-variables)
   - [Image](#image)
-  - [Example Configurations](#example-configuration)
+  - [Example configurations](#example-configurations)
 
 ### Module Configuration:
 
