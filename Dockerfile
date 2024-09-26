@@ -1,5 +1,7 @@
+# Base image
 FROM nginx:1.27.1-alpine3.20 as base
 
+# Build image
 FROM base as builder
 
 ARG JWT_MODULE_PATH=/usr/local/lib/ngx-http-auth-jwt-module
@@ -51,6 +53,7 @@ RUN cd /usr/src/nginx-${NGINX_VERSION} \
   && ./configure --with-compat --add-dynamic-module=$JWT_MODULE_PATH \
   && make modules
 
+# Final image
 FROM base as jwt-nginx
 
 ARG LIBJWT=libjwt.so.2.10.1
