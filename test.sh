@@ -83,7 +83,7 @@ TEST_TOTAL_COUNT=0
 TEST_FAIL_COUNT=0
 
 test_for_tab () {
-  local test=`grep $'\t' src/ngx_http_auth_jwt_module.c | wc -l`
+  local test=`grep $'\t' src/ngx_http_auth_jwt_module.c | wc -l | awk '{$1=$1};1'`
   local name='Indent test'
   if [ "$test" == "0" ];then
     echo -e "${GREEN}${name}: passed${NONE}";
@@ -121,7 +121,7 @@ test_conf_docker () {
   local config=$1
   local expect=$2
 
-  match=`docker exec -it $target nginx -t -c "/etc/nginx/${config}.conf" | grep "$expect" | wc -l`
+  match=`docker exec -it $target nginx -t -c "/etc/nginx/${config}.conf" | grep "$expect" | wc -l | awk '{$1=$1};1'`
 
   if [ "$match" -ne "0" ];then
     echo -e "${GREEN}Config test ${config}: passed (${match})${NONE}";
@@ -137,7 +137,7 @@ test_conf_local () {
   local config=$1
   local expect="$2"
 
-  match=`nginx -t -c "/etc/nginx/${config}.conf" 2>&1 | grep "$expect" | wc -l`
+  match=`nginx -t -c "/etc/nginx/${config}.conf" 2>&1 | grep "$expect" | wc -l | awk '{$1=$1};1'`
 
   if [ "$match" -ne "0" ];then
     echo -e "${GREEN}Config test ${config}: passed (${match})${NONE}";
