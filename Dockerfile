@@ -1,4 +1,4 @@
-FROM nginx:1.27.0-alpine3.19 as base
+FROM nginx:1.27.1-alpine3.20 as base
 
 FROM base as builder
 
