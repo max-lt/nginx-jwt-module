@@ -3,15 +3,36 @@
 [github-container-url]: https://github.com/max-lt/nginx-jwt-module/pkgs/container/nginx-jwt-module
 
 # Nginx jwt auth module
+
 [![License](https://img.shields.io/github/license/maxx-t/nginx-jwt-module.svg)][github-license-url]
 [![Build Status](https://github.com/max-lt/nginx-jwt-module/actions/workflows/docker.yml/badge.svg)][action-docker-url]
 [![Build Status](https://ghcr-badge.deta.dev/max-lt/nginx-jwt-module/size)][action-docker-url]
 
 This is an NGINX module to check for a valid JWT, this module intend to be as light as possible and to remain simple:
- - Docker image based on the [official nginx Dockerfile](https://github.com/nginxinc/docker-nginx) (alpine).
- - Light image (~400KB more than the official one).
 
-### Pre-built Packages (Ubuntu / Debian)
+- Docker image based on the [official nginx Dockerfile](https://github.com/nginxinc/docker-nginx) (alpine).
+- Light image (~400KB more than the official one).
+
+### Table of Contents:
+
+- [Quick Start](#quick-start)
+- [Module configuration](#module-configuration)
+- [Directives](#directives)
+- [Embedded variables](#embedded-variables)
+- [Extend Your Docker Image](#extend-your-docker-image)
+- [Example configurations](#example-configurations)
+
+### Quick Start:
+
+#### Docker Image:
+
+Image is generated with Github Actions (see [nginx-jwt-module:latest][github-container-url])
+
+```
+docker pull ghcr.io/max-lt/nginx-jwt-module:latest
+```
+
+#### Pre-built Packages (Ubuntu / Debian)
 
 Pre-built packages for this module are freely available from the GetPageSpeed repository:
 
@@ -32,17 +53,10 @@ sudo apt-get install nginx nginx-module-jwt
 
 The module is automatically enabled after installation. Supported distributions include Debian 12/13 and Ubuntu 20.04/22.04/24.04 (both amd64 and arm64). See [the complete setup instructions](https://apt-nginx-extras.getpagespeed.com/apt-setup/).
 
-### Table of Contents:
-
-  - [Module configuration](#module-configuration)
-  - [Directives](#directives)
-  - [Embedded variables](#embedded-variables)
-  - [Image](#image)
-  - [Example configurations](#example-configurations)
-
 ### Module Configuration:
 
 #### Example Configuration:
+
 ```nginx
 # nginx.conf
 load_module /usr/lib/nginx/modules/ngx_http_auth_jwt_module.so;
@@ -80,6 +94,7 @@ http {
 ```
 
 Note: don't forget to [load](http://nginx.org/en/docs/ngx_core_module.html#load_module) the module in the main context:
+
 ```nginx
 load_module /usr/lib/nginx/modules/ngx_http_auth_jwt_module.so;
 ```
@@ -105,8 +120,8 @@ The `auth_jwt $variable` value can be used to set a custom way to get the JWT, f
     Context: http, server, location
 
 Specifies the key for validating JWT signature (must be hexadecimal).<br>
-The *encoding* option may be `hex | utf8 | base64 | file` (default is `utf8`).<br>
-The `file` option requires the *value* to be a valid file path (pointing to a PEM encoded key).
+The _encoding_ option may be `hex | utf8 | base64 | file` (default is `utf8`).<br>
+The `file` option requires the _value_ to be a valid file path (pointing to a PEM encoded key).
 
 <hr>
 
@@ -133,6 +148,7 @@ These directives are inherited from the previous configuration level if and only
 If any of the checks fails, the 401 error code is returned. The optional error parameter allows redefining the error code to 403.
 
 Example:
+
 ```nginx
 # server.conf
 
@@ -159,25 +175,23 @@ server {
 }
 ```
 
-> Note that as `$jwt_claim_` returns a JSON-encoded value, so we have to check `\"value\"` (and not  `value`)
+> Note that as `$jwt_claim_` returns a JSON-encoded value, so we have to check `\"value\"` (and not `value`)
 
 ### Embedded Variables:
+
 The ngx_http_auth_jwt_module module supports embedded variables:
-- $jwt_header_*name* returns the specified header value
-- $jwt_claim_*name* returns the specified claim value
+
+- $jwt*header*_name_ returns the specified header value
+- $jwt*claim*_name_ returns the specified claim value
 - $jwt_headers returns headers
 - $jwt_payload returns payload
 
 > Note that as all returned values are JSON-encoded, so string will be surrounded by `"` character
 
-### Image:
-Image is generated with Github Actions (see [nginx-jwt-module:latest][github-container-url])
-
-```
-docker pull ghcr.io/max-lt/nginx-jwt-module:latest
-```
+### Extend Your Docker Image:
 
 #### Simply create your image from Github's generated one
+
 ```dockerfile
 FROM ghcr.io/max-lt/nginx-jwt-module:latest
 
@@ -194,6 +208,7 @@ CMD ["nginx", "-g", "daemon off;"]
 ```
 
 #### Or use the provided one directly
+
 ```bash
 docker run -p 80:80 \
   -v ./nginx.conf:/etc/nginx/nginx.conf \
@@ -201,6 +216,7 @@ docker run -p 80:80 \
 ```
 
 ### Build:
+
 This module is built inside a docker container, from the [nginx](https://hub.docker.com/_/nginx/)-alpine image.
 
 ```bash
@@ -212,6 +228,7 @@ docker build -f Dockerfile -t jwt-nginx .
 ### Test:
 
 #### Default usage:
+
 ```bash
 make test # Will build a test image and run the test suite
 ```
@@ -221,6 +238,7 @@ make test # Will build a test image and run the test suite
 In this section, we will see some examples of how to use this module.
 
 #### Redirect to login page if JWT is invalid:
+
 ```nginx
 load_module /usr/lib/nginx/modules/ngx_http_auth_jwt_module.so;
 
