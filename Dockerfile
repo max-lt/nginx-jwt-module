@@ -1,5 +1,5 @@
 # Base image
-FROM nginx:1.27.4-alpine3.21 AS base
+FROM nginx:1.28.1-alpine3.23 AS base
 
 # Build image
 FROM base AS builder
