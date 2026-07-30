@@ -3,7 +3,8 @@
 
 FROM jwt-nginx
 
-RUN apk add bash make openssl
+# curl is present in nginx:alpine but not in nginx:alpine-slim
+RUN apk add bash make openssl curl
 
 COPY test-image /test-image
 COPY ./test.sh /test.sh
