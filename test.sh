@@ -44,6 +44,14 @@ fi
 if [[ "$USE_CURRENT" == "0" ]]; then
   DOCKER_CONTAINER_NAME=container-${DOCKER_IMAGE_NAME}
   docker run --rm --name "${DOCKER_CONTAINER_NAME}" -d -p 8000:8000 ${DOCKER_IMAGE_NAME}
+
+  # Wait for nginx to accept connections before running tests
+  for i in $(seq 1 30); do
+    if curl -s -o /dev/null http://localhost:8000/auth-disabled; then
+      break
+    fi
+    sleep 1
+  done
 fi
 
 if [[ "$OSTYPE" == "darwin"* ]] || [[ "$OSTYPE" == "linux"* ]]; then
@@ -121,14 +129,14 @@ test_conf_docker () {
   local config=$1
   local expect=$2
 
-  match=`docker exec -it $target nginx -t -c "/etc/nginx/${config}.conf" | grep "$expect" | wc -l | awk '{$1=$1};1'`
+  match=`docker exec $target nginx -t -c "/etc/nginx/${config}.conf" 2>&1 | grep "$expect" | wc -l | awk '{$1=$1};1'`
 
   if [ "$match" -ne "0" ];then
     echo -e "${GREEN}Config test ${config}: passed (${match})${NONE}";
   else
     ((TEST_FAIL_COUNT++))
     echo -e "${RED}Config test ${config}: failed (no match for '${expect}')${NONE}";
-    docker exec -it $target nginx -t -c "/etc/nginx/${config}.conf"
+    docker exec $target nginx -t -c "/etc/nginx/${config}.conf"
   fi
 }
 
