@@ -32,6 +32,12 @@ Image is generated with Github Actions (see [nginx-jwt-module:latest][github-con
 docker pull ghcr.io/max-lt/nginx-jwt-module:latest
 ```
 
+A lighter variant based on `nginx:alpine-slim` (without the extra nginx dynamic modules such as njs, image-filter, xslt or geoip) is also available:
+
+```
+docker pull ghcr.io/max-lt/nginx-jwt-module:latest-slim
+```
+
 #### Pre-built Packages (Ubuntu / Debian)
 
 Pre-built packages for this module are freely available from the GetPageSpeed repository:

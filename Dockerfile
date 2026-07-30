@@ -1,5 +1,8 @@
+# Base image variant: "" (default) or "-slim"
+ARG BASE_SUFFIX=""
+
 # Base image
-FROM nginx:1.30.4-alpine3.24 AS base
+FROM nginx:1.30.4-alpine3.24${BASE_SUFFIX} AS base
 
 # Build image
 FROM base AS builder

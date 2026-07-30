@@ -5,7 +5,7 @@ on:
     branches: [ master ]
     tags:
       - 'v*.*.*'
-    paths: 
+    paths:
       - 'src/**.c'
       - 'Dockerfile'
   pull_request:
@@ -15,6 +15,9 @@ jobs:
   test:
     name: Run tests
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        suffix: ["", "-slim"]
     steps:
       - name: Check Out Repo
         uses: actions/checkout@v4
@@ -29,13 +32,18 @@ jobs:
           context: ./
           file: ./Dockerfile.merged
           push: false
-          cache-from: type=gha,scope=main
-          cache-to: type=gha,mode=max,scope=main
+          build-args: |
+            BASE_SUFFIX=${{ matrix.suffix }}
+          cache-from: type=gha,scope=main${{ matrix.suffix }}
+          cache-to: type=gha,mode=max,scope=main${{ matrix.suffix }}
   build:
     needs:
       - test
     name: Build image
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        suffix: ["", "-slim"]
     steps:
       - name: Check Out Repo
         uses: actions/checkout@v4
@@ -46,8 +54,8 @@ jobs:
           images: |
             ghcr.io/${{ github.repository }}
           tags: |
-            type=semver,pattern={{raw}}
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{raw}},suffix=${{ matrix.suffix }}
+            type=raw,value=latest${{ matrix.suffix }},enable={{is_default_branch}}
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
@@ -68,5 +76,7 @@ jobs:
           file: ./Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
-          cache-from: type=gha,scope=main
-          cache-to: type=gha,mode=max,scope=main
+          build-args: |
+            BASE_SUFFIX=${{ matrix.suffix }}
+          cache-from: type=gha,scope=main${{ matrix.suffix }}
+          cache-to: type=gha,mode=max,scope=main${{ matrix.suffix }}
