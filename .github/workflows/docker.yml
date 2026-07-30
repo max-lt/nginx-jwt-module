@@ -8,6 +8,10 @@ on:
     paths:
       - 'src/**.c'
       - 'Dockerfile'
+      - 'Dockerfile.test'
+      - 'test.sh'
+      - 'test-image/**'
+      - '.github/workflows/docker.yml'
   pull_request:
     branches: [ master ]
 
