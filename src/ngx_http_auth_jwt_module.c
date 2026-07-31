@@ -848,8 +848,7 @@ static ngx_int_t ngx_http_auth_jwt_variable(ngx_http_request_t *r, ngx_http_vari
 
       // libjwt returns every header or claim when asked for a NULL one,
       // so we must not let a failed allocation widen what we expose here.
-      if (val == NULL)
-      {
+      if (val == NULL) {
         ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "JWT: could not allocate memory");
         return NGX_ERROR;
       }
