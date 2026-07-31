@@ -139,6 +139,10 @@ The `file` option requires the _value_ to be a valid file path (pointing to a PE
 
 Specifies which algorithm the server expects to receive in the JWT.
 
+Tokens signed with an HMAC algorithm (`HS256`, `HS384`, `HS512`) are always rejected when the key is a PEM
+one, whatever this directive is set to: a public key is not a secret, so anyone could otherwise use it to
+sign a token the server would accept. Pinning the expected algorithm is still recommended.
+
 <hr>
 
 #### auth_jwt_require

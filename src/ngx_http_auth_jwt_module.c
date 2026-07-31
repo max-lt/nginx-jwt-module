@@ -47,6 +47,8 @@ static ngx_int_t ngx_http_auth_jwt_variable(ngx_http_request_t *r, ngx_http_vari
 static ngx_int_t auth_jwt_get_token(u_char **token, ngx_http_request_t *r, const ngx_http_auth_jwt_loc_conf_t *conf);
 static char * auth_jwt_key_from_file(ngx_conf_t *cf, const char *path, ngx_str_t *key);
 static u_char * auth_jwt_safe_string(ngx_pool_t *pool, u_char *src, size_t len);
+static ngx_uint_t auth_jwt_key_is_pem(const ngx_str_t *key);
+static ngx_uint_t auth_jwt_alg_is_hmac(jwt_alg_t alg);
 
 // Configuration functions
 static ngx_int_t ngx_http_auth_jwt_add_variables(ngx_conf_t *cf);
@@ -185,6 +187,18 @@ static ngx_int_t ngx_http_auth_jwt_variable_handler(ngx_http_request_t *r)
   if (jwt_decode(&jwt, (char *)jwt_data, conf->jwt_key.data, conf->jwt_key.len))
   {
     ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: failed to parse jwt");
+    return NGX_DECLINED;
+  }
+
+  // A PEM key is meant to be used with an asymmetric algorithm, and its public
+  // half is not a secret: signing a token with it as an HMAC secret would let
+  // anybody forge a valid jwt. Unlike the auth_jwt_alg policy, checked in the
+  // access handler, this one is done here so that a forged jwt never reaches
+  // the module context, hence never feeds the $jwt_* variables.
+  if (auth_jwt_key_is_pem(&conf->jwt_key) && auth_jwt_alg_is_hmac(jwt_get_alg(jwt)))
+  {
+    ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: %s algorithm cannot be used with a PEM key", jwt_alg_str(jwt_get_alg(jwt)));
+    jwt_free(jwt);
     return NGX_DECLINED;
   }
 
@@ -673,6 +687,22 @@ static u_char * auth_jwt_safe_string(ngx_pool_t *pool, u_char *src, size_t len)
   dst[len] = '\0';
 
   return dst;
+}
+
+
+// Tell whether a key holds a PEM block (public key, private key, certificate...)
+static ngx_uint_t auth_jwt_key_is_pem(const ngx_str_t *key)
+{
+  static const ngx_str_t pem_prefix = ngx_string("-----BEGIN");
+
+  return key->len > pem_prefix.len && ngx_strncmp(key->data, pem_prefix.data, pem_prefix.len) == 0;
+}
+
+
+// Tell whether an algorithm signs with a shared secret rather than a key pair
+static ngx_uint_t auth_jwt_alg_is_hmac(jwt_alg_t alg)
+{
+  return alg == JWT_ALG_HS256 || alg == JWT_ALG_HS384 || alg == JWT_ALG_HS512;
 }
 
 

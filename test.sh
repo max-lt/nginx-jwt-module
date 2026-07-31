@@ -64,6 +64,7 @@ fi
 
 b64enc() { openssl enc -base64 -A | tr '+/' '-_' | tr -d '='; }
 hs_sign() { openssl dgst -binary -sha"${1}" -hmac "$2"; }
+hs_sign_hex() { openssl dgst -binary -sha"${1}" -mac HMAC -macopt hexkey:"$2"; }
 rs_sign() { openssl dgst -binary -sha"${1}" -sign <(printf '%s\n' "$2"); }
 
 make_jwt() {
@@ -78,12 +79,27 @@ make_jwt() {
   return 0
 }
 
+# Sign a jwt with the raw content of a key file used as an hmac secret.
+# The secret is passed as hex so that it matches the file byte for byte.
+make_hmac_jwt() {
+  local alg=$1
+  local key=$2
+  local alg_size=${alg#HS} # alg without HS prefix
+  local header=`echo -n "{\"alg\":\"$alg\"}" | b64enc`
+  local payload=`echo -n '{}' | b64enc`
+  local secret=`od -An -v -tx1 ./test-image/nginx/keys/$key | tr -d ' \n'`
+  local sig=`echo -n "$header.$payload" | hs_sign_hex "$alg_size" "$secret" | b64enc`
+  echo -n "$header.$payload.$sig"
+  return 0
+}
+
 # Disable exit on error
 set +e
 
 VALID_RS256=`make_jwt RS256 rsa-private.pem`
 VALID_RS512=`make_jwt RS512 rsa-private.pem`
 BAD_RS256=`make_jwt RS256 rsa-wrong-private.pem`
+FORGED_HS256=`make_hmac_jwt HS256 rsa-public.pem` # public key used as an hmac secret
 VALID_JWT="eyJhbGciOiJIUzI1NiJ9.e30.-gVyhFDs5NeX0yvaAoTPVgrDfrg_qk7dF0sNj_-Bu-c" # secret = 'inherited-secret' (utf8)
 BAD_SIG="eyJhbGciOiJIUzI1NiJ9.e30.nmwH1lIcnA-g8CEV_fWIlAV7h98_Wwy1gIqIabAdrIs" # secret = 'invalid' (utf8)
 
@@ -234,6 +250,12 @@ test_jwt "Valid jwt header with expected alg (RS256)" "/rsa-file-encoded-alg-256
 test_jwt "Valid jwt header with expected alg (RS512)" "/rsa-file-encoded-alg-512" "201" "--header \"Authorization: Bearer ${VALID_RS512}\""
 test_jwt "Valid jwt header but bad alg (RS512 instead of RS256)" "/rsa-file-encoded-alg-256/" "401" "--header \"Authorization: Bearer ${VALID_RS512}\""
 test_jwt "Valid jwt header but bad alg (RS256 instead of RS512)" "/rsa-file-encoded-alg-512/" "401" "--header \"Authorization: Bearer ${VALID_RS256}\""
+
+echo "# Test algorithm confusion"
+test_jwt "Calling rsa-file-encoded with a jwt signed with the public key should return 401" "/rsa-file-encoded" "401" "--header \"Authorization: Bearer ${FORGED_HS256}\""
+test_jwt "Calling any-alg with a jwt signed with the public key should return 401" "/any-alg" "401" "--header \"Authorization: Bearer ${FORGED_HS256}\""
+JWT='eyJhbGciOiJIUzI1NiJ9.e30.XmNK3GpH3Ys_7wsYBfq4C3M6goz71I7dTgUkuIa5lyQ' # secret = 'secret' (utf8)
+test_jwt "Calling hmac-file-encoded with a valid jwt should return 201" "/hmac-file-encoded" "201" "--header \"Authorization: Bearer ${JWT}\""
 
 echo "# Test any alg"
 test_jwt "Calling any-alg with RS256 alg should return 201" "/any-alg" "201" "--header \"Authorization: Bearer ${VALID_RS256}\""

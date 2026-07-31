@@ -6,6 +6,7 @@ test/keys:
 	@openssl genrsa 2048 > $(keys_path)/rsa-wrong-private.pem
 	@openssl rsa -in $(keys_path)/rsa-private.pem -pubout > $(keys_path)/rsa-public.pem
 	@openssl rsa -in $(keys_path)/rsa-wrong-private.pem -pubout > $(keys_path)/rsa-wrong-public.pem
+	@printf 'secret' > $(keys_path)/hmac-secret.txt
 
 # Tests with an existing container
 # usage: make test/current container=my-test-container
