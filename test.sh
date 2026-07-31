@@ -174,9 +174,9 @@ test_conf_local () {
 
 test_conf () {
   if [[ "$USE_CURRENT" == "2" ]]; then
-    test_conf_local $@
+    test_conf_local "$@"
   else
-    test_conf_docker $@
+    test_conf_docker "$@"
   fi
 }
 
@@ -287,7 +287,7 @@ if [[ "$USE_CURRENT" == "1" ]] && [[ "$DOCKER_CONTAINER_NAME" == "0" ]]; then
   echo -e "${YELLOW}Warning: container identifier not set -> skipping configuration tests${NONE}"
 else
   echo "# Test configurations"
-  test_conf 'invalid-nginx-1' '"auth_jwt_key" directive is duplicate in /etc/nginx/invalid-nginx.conf:18'
+  test_conf 'invalid-nginx-1' '"auth_jwt_key" directive is duplicate in /etc/nginx/invalid-nginx-1.conf:18'
   test_conf 'invalid-nginx-2' 'JWT: key not set in /etc/nginx/invalid-nginx-2.conf:10'
   test_conf 'invalid-arg-1' 'invalid number of arguments in "auth_jwt" directive in /etc/nginx/invalid-arg-1.conf:6'
   test_conf 'invalid-arg-2' 'invalid number of arguments in "auth_jwt_key" directive in /etc/nginx/invalid-arg-2.conf:5'
@@ -300,7 +300,7 @@ else
   test_conf 'invalid-require-1' 'invalid error code 402 in /etc/nginx/invalid-require-1.conf:17'
   test_conf 'invalid-require-2' 'error=403 cannot be the single element of jwt_auth_require directive in /etc/nginx/invalid-require-2.conf:17'
   test_conf 'invalid-require-3' 'error=401 must be the last element of jwt_auth_require directive in /etc/nginx/invalid-require-3.conf:17'
-  test_conf 'invalid-require-4' 'invalid variable name "admin=true" in /etc/nginx/invalid-require-6.conf:13'
+  test_conf 'invalid-require-4' 'invalid variable name "admin=true" in /etc/nginx/invalid-require-4.conf:13'
   test_conf 'invalid-require-5' 'unknown "jwt_has_admin_role" variable'
   test_conf 'invalid-require-6' '"auth_jwt_require" directive is duplicate in /etc/nginx/invalid-require-6.conf:23'
 fi
