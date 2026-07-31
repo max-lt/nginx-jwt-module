@@ -723,9 +723,9 @@ static ngx_int_t auth_jwt_get_token(u_char **token, ngx_http_request_t *r, const
     return NGX_ERROR;
   }
 
-  if (token == NULL)
+  if (*token == NULL)
   {
-    ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "Could not allocate memory.");
+    ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "JWT: could not allocate memory");
     return NGX_ERROR;
   }
 
