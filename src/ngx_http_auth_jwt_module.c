@@ -408,19 +408,32 @@ static char * auth_jwt_key_from_file(ngx_conf_t *cf, const char *path, ngx_str_t
   struct stat fstat;
   if (stat(path, &fstat) < 0)
   {
-    ngx_conf_log_error(NGX_LOG_ERR, cf, errno, strerror(errno));
+    ngx_conf_log_error(NGX_LOG_ERR, cf, errno, "JWT: stat() \"%s\" failed", path);
+    return NGX_CONF_ERROR;
+  }
+
+  // An empty file would silently give an empty key
+  if (fstat.st_size == 0)
+  {
+    ngx_conf_log_error(NGX_LOG_ERR, cf, 0, "JWT: key file \"%s\" is empty", path);
     return NGX_CONF_ERROR;
   }
 
   FILE *fp = fopen(path, "rb");
   if (fp == NULL)
   {
-    ngx_conf_log_error(NGX_LOG_ERR, cf, errno, strerror(errno));
+    ngx_conf_log_error(NGX_LOG_ERR, cf, errno, "JWT: fopen() \"%s\" failed", path);
     return NGX_CONF_ERROR;
   }
 
   key->len = fstat.st_size;
   key->data = ngx_pcalloc(cf->pool, key->len);
+
+  if (key->data == NULL)
+  {
+    fclose(fp);
+    return NGX_CONF_ERROR;
+  }
 
   if (fread(key->data, 1, key->len, fp) != key->len)
   {
@@ -536,6 +549,12 @@ static char * ngx_conf_set_auth_jwt_key(ngx_conf_t *cf, ngx_command_t *cmd, void
     if (ngx_strcmp(value[2].data, "file") == 0)
     {
       const char *path = (char *)auth_jwt_safe_string(cf->pool, value[1].data, value[1].len);
+
+      if (path == NULL)
+      {
+        return NGX_CONF_ERROR;
+      }
+
       return auth_jwt_key_from_file(cf, path, key);
     }
     else if (ngx_strcmp(value[2].data, "hex") == 0)
@@ -582,6 +601,11 @@ static char * ngx_conf_set_auth_jwt_key(ngx_conf_t *cf, ngx_command_t *cmd, void
       key->data = ngx_palloc(cf->pool, keystr->len / 2);
       key->len = keystr->len / 2;
 
+      if (key->data == NULL)
+      {
+        return NGX_CONF_ERROR;
+      }
+
       if (hex_to_binary(key->data, keystr->data, keystr->len) != NGX_OK)
       {
         ngx_conf_log_error(NGX_LOG_ERR, cf, 0, "JWT: Failed to turn hex key into binary");
@@ -594,6 +618,11 @@ static char * ngx_conf_set_auth_jwt_key(ngx_conf_t *cf, ngx_command_t *cmd, void
     {
       key->len = ngx_base64_decoded_length(keystr->len);
       key->data = ngx_palloc(cf->pool, key->len);
+
+      if (key->data == NULL)
+      {
+        return NGX_CONF_ERROR;
+      }
 
       if (ngx_decode_base64(key, keystr) != NGX_OK)
       {
