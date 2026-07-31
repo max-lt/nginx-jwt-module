@@ -252,8 +252,11 @@ static ngx_int_t ngx_http_auth_jwt_access_handler(ngx_http_request_t *r)
     if (exp == 0)
     {
       ngx_log_error(NGX_LOG_WARN, r->connection->log, 0, "JWT: invalid exp date in jwt %s", exp_str);
+      jwt_free_str(exp_str);
       return NGX_HTTP_UNAUTHORIZED;
     }
+
+    jwt_free_str(exp_str);
 
     if (exp < time(NULL))
     {
@@ -757,7 +760,7 @@ static ngx_int_t ngx_http_auth_jwt_variable(ngx_http_request_t *r, ngx_http_vari
     return NGX_OK;
   }
 
-  const char *value = NULL;
+  char *value = NULL;
 
   switch (data)
   {
@@ -792,8 +795,18 @@ static ngx_int_t ngx_http_auth_jwt_variable(ngx_http_request_t *r, ngx_http_vari
     return NGX_OK;
   }
 
-  v->data = (u_char *) value;
-  v->len = ngx_strlen(value);
+  const size_t len = ngx_strlen(value);
+  u_char *copy = auth_jwt_safe_string(r->pool, (u_char *) value, len);
+
+  jwt_free_str(value);
+
+  if (copy == NULL) {
+    ngx_log_error(NGX_LOG_ERR, r->connection->log, 0, "JWT: could not allocate memory");
+    return NGX_ERROR;
+  }
+
+  v->data = copy;
+  v->len = len;
   v->valid = 1;
   v->no_cacheable = 0;
   v->not_found = 0;
