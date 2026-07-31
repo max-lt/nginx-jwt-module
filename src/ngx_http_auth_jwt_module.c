@@ -272,7 +272,7 @@ static ngx_int_t ngx_http_auth_jwt_access_handler(ngx_http_request_t *r)
 
     jwt_free_str(exp_str);
 
-    if (exp < time(NULL))
+    if (exp < ngx_time())
     {
       ngx_log_error(NGX_LOG_INFO, r->connection->log, 0, "JWT: the jwt has expired [exp=%ld]", (long)exp);
       return NGX_HTTP_UNAUTHORIZED;
