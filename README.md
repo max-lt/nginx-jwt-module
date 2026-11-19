@@ -6,7 +6,6 @@
 
 [![License](https://img.shields.io/github/license/maxx-t/nginx-jwt-module.svg)][github-license-url]
 [![Build Status](https://github.com/max-lt/nginx-jwt-module/actions/workflows/docker.yml/badge.svg)][action-docker-url]
-[![Build Status](https://ghcr-badge.deta.dev/max-lt/nginx-jwt-module/size)][action-docker-url]
 
 This is an NGINX module to check for a valid JWT, this module intend to be as light as possible and to remain simple:
 
